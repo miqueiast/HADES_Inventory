@@ -8,12 +8,27 @@ from tkinter.scrolledtext import ScrolledText
 import sys
 from io import StringIO
 import logging
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
+import queue
+import traceback
+
+class FileMonitor(FileSystemEventHandler):
+    def __init__(self, app, inventory_name):
+        self.app = app
+        self.inventory_name = inventory_name
+        self.logger = logging.getLogger(__name__)
+        
+    def on_created(self, event):
+        if not event.is_directory and event.src_path.lower().endswith('.xlsx'):
+            self.logger.info(f"Novo arquivo detectado: {event.src_path}")
+            self.app.process_new_file(event.src_path, self.inventory_name)
 
 class InventarioApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("Sistema de Gerenciamento de Inventário - Versão 2.0")
-        self.root.geometry("1000x750")
+        self.root.title("Sistema de Gerenciamento de Inventário - Versão Final")
+        self.root.geometry("1100x800")
         
         # Configuração de estilo
         self.setup_styles()
@@ -25,6 +40,12 @@ class InventarioApp:
         self.txt_file_path = tk.StringVar()
         self.selected_inventory = tk.StringVar()
         
+        # Controle de monitoramento
+        self.monitor_thread = None
+        self.observer = None
+        self.monitor_active = False
+        self.file_queue = queue.Queue()
+        
         # Configurar o notebook (abas)
         self.notebook = ttk.Notebook(root)
         self.notebook.pack(fill='both', expand=True, padx=10, pady=10)
@@ -34,6 +55,7 @@ class InventarioApp:
         self.create_tab2()  # Processar TXT
         self.create_tab3()  # Consolidar Dados
         self.create_tab4()  # Visualizar Dados
+        self.create_tab5()  # Monitoramento
         
         # Barra de status
         self.status_var = tk.StringVar()
@@ -46,16 +68,23 @@ class InventarioApp:
         
         # Atualizar lista de inventários disponíveis
         self.update_inventory_list()
+        
+        # Iniciar thread para processar arquivos na fila
+        self.start_file_processor()
     
     def setup_styles(self):
         """Configura estilos para a interface"""
         style = ttk.Style()
+        style.theme_use('clam')
         style.configure('TFrame', background='#f0f0f0')
         style.configure('TLabel', background='#f0f0f0', font=('Arial', 10))
         style.configure('TButton', font=('Arial', 10))
         style.configure('TNotebook.Tab', font=('Arial', 10, 'bold'))
         style.configure('Header.TLabel', font=('Arial', 12, 'bold'))
-        
+        style.configure('Accent.TButton', foreground='white', background='#4a6ea9', font=('Arial', 10, 'bold'))
+        style.configure('Alert.TLabel', foreground='red', font=('Arial', 10, 'bold'))
+        style.configure('Success.TLabel', foreground='green', font=('Arial', 10, 'bold'))
+    
     def setup_logging(self):
         """Configura o sistema de logging"""
         logging.basicConfig(
@@ -94,8 +123,9 @@ class InventarioApp:
         # Botão para criar inventário
         btn_frame = ttk.Frame(main_frame)
         btn_frame.pack(fill='x', pady=10)
-        ttk.Button(btn_frame, text="Criar Inventário", command=self.criar_inventario, 
-                  style='Accent.TButton').pack(pady=10, ipadx=20, ipady=5)
+        self.create_button = ttk.Button(btn_frame, text="Criar Inventário", command=self.criar_inventario, 
+                                      style='Accent.TButton')
+        self.create_button.pack(pady=10, ipadx=20, ipady=5)
         
         # Área de log
         log_frame = ttk.LabelFrame(main_frame, text="Log de Execução")
@@ -134,8 +164,9 @@ class InventarioApp:
         # Botão para processar
         btn_frame = ttk.Frame(main_frame)
         btn_frame.pack(fill='x', pady=10)
-        ttk.Button(btn_frame, text="Processar TXT", command=self.processar_txt, 
-                  style='Accent.TButton').pack(pady=10, ipadx=20, ipady=5)
+        self.process_button = ttk.Button(btn_frame, text="Processar TXT", command=self.processar_txt, 
+                                       style='Accent.TButton')
+        self.process_button.pack(pady=10, ipadx=20, ipady=5)
         
         # Área de log
         log_frame = ttk.LabelFrame(main_frame, text="Log de Processamento")
@@ -166,8 +197,9 @@ class InventarioApp:
         # Botão para consolidar
         btn_frame = ttk.Frame(main_frame)
         btn_frame.pack(fill='x', pady=10)
-        ttk.Button(btn_frame, text="Iniciar Consolidação", command=self.iniciar_consolidacao, 
-                  style='Accent.TButton').pack(pady=10, ipadx=20, ipady=5)
+        self.consolidate_button = ttk.Button(btn_frame, text="Iniciar Consolidação", command=self.iniciar_consolidacao, 
+                                           style='Accent.TButton')
+        self.consolidate_button.pack(pady=10, ipadx=20, ipady=5)
         
         # Progress bar
         progress_frame = ttk.Frame(main_frame)
@@ -201,8 +233,9 @@ class InventarioApp:
         self.view_combobox = ttk.Combobox(control_frame, textvariable=self.selected_inventory, width=40)
         self.view_combobox.pack(side='left', padx=10)
         ttk.Button(control_frame, text="Atualizar Lista", command=self.update_inventory_list).pack(side='left', padx=10)
-        ttk.Button(control_frame, text="Carregar Dados", command=self.carregar_dados, 
-                  style='Accent.TButton').pack(side='right', padx=10)
+        self.load_button = ttk.Button(control_frame, text="Carregar Dados", command=self.carregar_dados, 
+                                    style='Accent.TButton')
+        self.load_button.pack(side='right', padx=10)
         
         # Treeview para exibir os dados
         tree_frame = ttk.Frame(main_frame)
@@ -225,6 +258,44 @@ class InventarioApp:
         info_frame.pack(fill='x', pady=10)
         self.info_label = ttk.Label(info_frame, text="Selecione um inventário e clique em 'Carregar Dados'")
         self.info_label.pack()
+    
+    def create_tab5(self):
+        """Cria a aba para monitoramento"""
+        tab5 = ttk.Frame(self.notebook)
+        self.notebook.add(tab5, text="5. Monitoramento")
+        
+        # Frame principal
+        main_frame = ttk.Frame(tab5)
+        main_frame.pack(fill='both', expand=True, padx=20, pady=20)
+        
+        # Frame de status
+        status_frame = ttk.LabelFrame(main_frame, text="Status do Monitoramento")
+        status_frame.pack(fill='x', pady=10)
+        
+        self.monitor_status = ttk.Label(status_frame, text="Monitoramento INATIVO", style='Alert.TLabel')
+        self.monitor_status.pack(pady=5)
+        
+        self.current_inventory_label = ttk.Label(status_frame, text="Inventário monitorado: Nenhum")
+        self.current_inventory_label.pack(pady=5)
+        
+        self.watch_folder_label = ttk.Label(status_frame, text="Pasta monitorada: Nenhuma")
+        self.watch_folder_label.pack(pady=5)
+        
+        # Frame de controle
+        control_frame = ttk.Frame(main_frame)
+        control_frame.pack(fill='x', pady=10)
+        
+        self.stop_monitor_button = ttk.Button(control_frame, text="Parar Monitoramento", command=self.parar_monitoramento,
+                                            style='Accent.TButton')
+        self.stop_monitor_button.pack(side='right', padx=5)
+        
+        # Área de log
+        log_frame = ttk.LabelFrame(main_frame, text="Log de Monitoramento")
+        log_frame.pack(fill='both', expand=True, pady=10)
+        
+        self.monitor_log = ScrolledText(log_frame, height=15, width=100, wrap=tk.WORD)
+        self.monitor_log.pack(fill='both', expand=True, padx=5, pady=5)
+        self.monitor_log.config(state='disabled')
     
     def update_inventory_list(self):
         """Atualiza a lista de inventários disponíveis"""
@@ -265,7 +336,7 @@ class InventarioApp:
         self.logger.info(message)
     
     def criar_inventario(self):
-        """Cria um novo inventário"""
+        """Cria um novo inventário e inicia o monitoramento"""
         nome = self.nome_inventario.get().strip()
         loja = self.nome_loja.get().strip()
         pessoa = self.nome_pessoa.get().strip()
@@ -274,41 +345,54 @@ class InventarioApp:
             messagebox.showerror("Erro", "Todos os campos são obrigatórios!")
             return
         
-        # Executa em uma thread separada para não travar a interface
+        # Desabilita o botão durante a criação
+        self.create_button.config(state='disabled')
+        self.status_var.set(f"Criando inventário: {nome}...")
+        self.log_message(self.log_area, f"\n=== INICIANDO CRIAÇÃO DE INVENTÁRIO ===")
+        self.log_message(self.log_area, f"Nome: {nome}")
+        self.log_message(self.log_area, f"Loja: {loja}")
+        self.log_message(self.log_area, f"Responsável: {pessoa}")
+        
         def run():
-            self.status_var.set(f"Criando inventário: {nome}...")
-            self.log_message(self.log_area, f"Iniciando criação do inventário: {nome}")
-            
-            # Redireciona a saída padrão para capturar logs
-            old_stdout = sys.stdout
-            sys.stdout = mystdout = StringIO()
-            
             try:
                 # Cria a estrutura de pastas
                 self.criar_estrutura_pastas(nome, loja, pessoa)
                 
-                # Atualiza a interface
-                self.root.after(0, lambda: messagebox.showinfo(
-                    "Sucesso", 
-                    f"Inventário '{nome}' criado com sucesso!\n"
-                    f"Loja: {loja}\n"
-                    f"Responsável: {pessoa}"
-                ))
+                # Caminho da pasta de contagem na área de trabalho
+                desktop = os.path.join(os.path.expanduser("~"), "Desktop")
+                pasta_contagem = os.path.join(desktop, f"{nome} - Inserir Dados de Contagem")
                 
-                self.update_inventory_list()
+                # Inicia o monitoramento
+                self.iniciar_monitoramento(pasta_contagem, nome)
+                
+                # Atualiza a interface
+                self.root.after(0, lambda: [
+                    messagebox.showinfo(
+                        "Sucesso", 
+                        f"Inventário '{nome}' criado com sucesso!\n"
+                        f"Pasta de contagem criada em:\n{pasta_contagem}"
+                    ),
+                    self.update_inventory_list(),
+                    self.create_button.config(state='normal'),
+                    self.status_var.set("Inventário criado com sucesso!")
+                ])
                 
             except Exception as e:
-                self.root.after(0, lambda: messagebox.showerror(
-                    "Erro", 
-                    f"Falha ao criar inventário: {str(e)}"
-                ))
-                self.logger.error(f"Erro ao criar inventário: {str(e)}")
+                error_msg = f"ERRO: {str(e)}\n{traceback.format_exc()}"
+                self.logger.error(error_msg)
+                self.root.after(0, lambda: [
+                    messagebox.showerror(
+                        "Erro", 
+                        f"Falha ao criar inventário:\n{str(e)}"
+                    ),
+                    self.create_button.config(state='normal'),
+                    self.status_var.set("Erro ao criar inventário"),
+                    self.log_message(self.log_area, "=== ERRO NA CRIAÇÃO ==="),
+                    self.log_message(self.log_area, error_msg)
+                ])
                 
             finally:
-                sys.stdout = old_stdout
-                output = mystdout.getvalue()
-                self.log_message(self.log_area, output)
-                self.status_var.set("Pronto")
+                self.root.after(3000, lambda: self.status_var.set("Pronto"))
         
         threading.Thread(target=run, daemon=True).start()
     
@@ -327,7 +411,7 @@ class InventarioApp:
         os.makedirs(os.path.join(caminho_inventario, "dados_processados"))
         
         # Cria arquivo de informações
-        with open(os.path.join(caminho_inventario, "informacoes.txt"), 'w') as f:
+        with open(os.path.join(caminho_inventario, "informacoes.txt"), 'w', encoding='utf-8') as f:
             f.write(f"Nome do Inventário: {nome_inventario}\n")
             f.write(f"Nome da Loja: {nome_loja}\n")
             f.write(f"Responsável: {nome_pessoa}\n")
@@ -335,13 +419,335 @@ class InventarioApp:
         # Cria pasta na área de trabalho
         desktop = os.path.join(os.path.expanduser("~"), "Desktop")
         pasta_contagem = os.path.join(desktop, f"{nome_inventario} - Inserir Dados de Contagem")
-        os.makedirs(pasta_contagem)
+        os.makedirs(pasta_contagem, exist_ok=True)
         
         self.logger.info(f"Estrutura criada com sucesso em: {caminho_inventario}")
         self.logger.info(f"Pasta de contagem criada na área de trabalho: {pasta_contagem}")
     
+    def iniciar_monitoramento(self, pasta_contagem, nome_inventario):
+        """Inicia o monitoramento com tratamento de erros melhorado"""
+        try:
+            if not os.path.exists(pasta_contagem):
+                raise FileNotFoundError(f"A pasta de contagem não existe: {pasta_contagem}")
+            
+            # Para qualquer monitoramento existente
+            if self.observer and self.observer.is_alive():
+                self.observer.stop()
+                self.observer.join()
+            
+            # Configura o novo monitoramento
+            self.observer = Observer()
+            event_handler = FileMonitor(self, nome_inventario)
+            self.observer.schedule(event_handler, pasta_contagem, recursive=False)
+            self.observer.start()
+            self.monitor_active = True
+            
+            self.logger.info(f"Monitoramento iniciado para: {pasta_contagem}")
+            self.log_message(self.monitor_log, f"\n=== MONITORAMENTO INICIADO ===")
+            self.log_message(self.monitor_log, f"Data/Hora: {time.strftime('%d/%m/%Y %H:%M:%S')}")
+            self.log_message(self.monitor_log, f"Pasta: {pasta_contagem}")
+            self.log_message(self.monitor_log, f"Inventário: {nome_inventario}")
+            
+            # Atualiza status na interface
+            self.root.after(0, lambda: [
+                self.update_monitor_status(True, nome_inventario, pasta_contagem),
+                messagebox.showinfo(
+                    "Monitoramento Ativo",
+                    f"Monitoramento iniciado com sucesso!\n"
+                    f"Pasta: {pasta_contagem}\n"
+                    f"Qualquer arquivo .xlsx adicionado será processado automaticamente."
+                )
+            ])
+            
+        except Exception as e:
+            error_msg = f"Falha ao iniciar monitoramento: {str(e)}\n{traceback.format_exc()}"
+            self.logger.error(error_msg)
+            self.root.after(0, lambda: [
+                messagebox.showerror(
+                    "Erro no Monitoramento",
+                    f"Não foi possível iniciar o monitoramento:\n{str(e)}"
+                ),
+                self.log_message(self.monitor_log, "\n=== ERRO NO MONITORAMENTO ==="),
+                self.log_message(self.monitor_log, error_msg),
+                self.update_monitor_status(False, "", "")
+            ])
+    
+    def parar_monitoramento(self):
+        """Para o monitoramento da pasta"""
+        try:
+            if self.observer and self.observer.is_alive():
+                self.observer.stop()
+                self.observer.join()
+                self.monitor_active = False
+                
+                self.logger.info("Monitoramento parado com sucesso")
+                self.log_message(self.monitor_log, "\n=== MONITORAMENTO PARADO ===")
+                self.log_message(self.monitor_log, f"Data/Hora: {time.strftime('%d/%m/%Y %H:%M:%S')}")
+                
+                self.root.after(0, lambda: [
+                    messagebox.showinfo(
+                        "Monitoramento Parado",
+                        "O monitoramento foi interrompido com sucesso."
+                    ),
+                    self.update_monitor_status(False, "", "")
+                ])
+            else:
+                self.root.after(0, lambda: [
+                    messagebox.showinfo(
+                        "Monitoramento",
+                        "Nenhum monitoramento ativo para parar."
+                    )
+                ])
+                
+        except Exception as e:
+            error_msg = f"Erro ao parar monitoramento: {str(e)}\n{traceback.format_exc()}"
+            self.logger.error(error_msg)
+            self.root.after(0, lambda: [
+                messagebox.showerror(
+                    "Erro",
+                    f"Falha ao parar monitoramento:\n{str(e)}"
+                ),
+                self.log_message(self.monitor_log, "\n=== ERRO AO PARAR MONITORAMENTO ==="),
+                self.log_message(self.monitor_log, error_msg)
+            ])
+    
+    def update_monitor_status(self, active, inventory_name, watch_folder):
+        """Atualiza o status do monitoramento na interface"""
+        if active:
+            self.monitor_status.config(text="Monitoramento ATIVO", style='Success.TLabel')
+            self.current_inventory_label.config(text=f"Inventário monitorado: {inventory_name}")
+            self.watch_folder_label.config(text=f"Pasta monitorada: {watch_folder}")
+            self.stop_monitor_button.config(state='normal')
+        else:
+            self.monitor_status.config(text="Monitoramento INATIVO", style='Alert.TLabel')
+            self.current_inventory_label.config(text="Inventário monitorado: Nenhum")
+            self.watch_folder_label.config(text="Pasta monitorada: Nenhuma")
+            self.stop_monitor_button.config(state='disabled')
+    
+    def start_file_processor(self):
+        """Inicia a thread que processa arquivos da fila"""
+        def processor():
+            while True:
+                file_path, inventory_name = self.file_queue.get()
+                try:
+                    self.process_excel_file(file_path, inventory_name)
+                except Exception as e:
+                    error_msg = f"ERRO no processamento automático: {str(e)}\n{traceback.format_exc()}"
+                    self.logger.error(error_msg)
+                    self.root.after(0, lambda: [
+                        self.log_message(self.monitor_log, "\n=== ERRO NO PROCESSAMENTO AUTOMÁTICO ==="),
+                        self.log_message(self.monitor_log, error_msg),
+                        self.status_var.set("Erro no processamento automático")
+                    ])
+                finally:
+                    self.file_queue.task_done()
+                    self.root.after(2000, lambda: self.status_var.set("Pronto"))
+        
+        thread = threading.Thread(target=processor, daemon=True)
+        thread.start()
+    
+    def process_new_file(self, file_path, inventory_name):
+        """Adiciona novo arquivo à fila de processamento"""
+        self.file_queue.put((file_path, inventory_name))
+        self.log_message(self.monitor_log, f"\nNovo arquivo detectado e adicionado à fila: {file_path}")
+        self.status_var.set(f"Novo arquivo detectado: {os.path.basename(file_path)}")
+    
+    def process_excel_file(self, file_path, inventory_name):
+        """Processa um arquivo Excel com tratamento de erros detalhado"""
+        self.logger.info(f"Iniciando processamento do arquivo: {file_path}")
+        self.root.after(0, lambda: [
+            self.status_var.set(f"Processando {os.path.basename(file_path)}..."),
+            self.log_message(self.monitor_log, f"\n=== INICIANDO PROCESSAMENTO ==="),
+            self.log_message(self.monitor_log, f"Arquivo: {file_path}"),
+            self.log_message(self.monitor_log, f"Inventário: {inventory_name}"),
+            self.log_message(self.monitor_log, f"Data/Hora: {time.strftime('%d/%m/%Y %H:%M:%S')}")
+        ])
+        
+        try:
+            # Verifica se o arquivo existe e é válido
+            if not os.path.exists(file_path):
+                raise FileNotFoundError(f"Arquivo não encontrado: {file_path}")
+            
+            if os.path.getsize(file_path) == 0:
+                raise ValueError("O arquivo está vazio")
+            
+            # Caminhos dos arquivos
+            dados_processados = os.path.join("Inventário", inventory_name, "dados_processados")
+            os.makedirs(dados_processados, exist_ok=True)
+            
+            consolidados_file = os.path.join(dados_processados, "dados_consolidados.csv")
+            output_file = os.path.join(dados_processados, "output.csv")
+            
+            # Lê o arquivo Excel
+            try:
+                df = pd.read_excel(file_path)
+                self.log_message(self.monitor_log, "Arquivo Excel lido com sucesso")
+            except Exception as e:
+                raise ValueError(f"Erro ao ler arquivo Excel: {str(e)}")
+            
+            # Verifica colunas necessárias
+            required_columns = ["LOJA KEY", "OPERADOR", "ENDEREÇO", "CÓD. BARRAS", "QNT. CONTADA"]
+            missing_columns = [col for col in required_columns if col not in df.columns]
+            
+            if missing_columns:
+                raise ValueError(f"Colunas obrigatórias faltando: {', '.join(missing_columns)}")
+            
+            # Processa os dados
+            try:
+                df_agrupado = (
+                    df.groupby(["LOJA KEY", "ENDEREÇO", "CÓD. BARRAS"], as_index=False)
+                    .agg({
+                        "QNT. CONTADA": "sum",
+                        "OPERADOR": lambda x: "/".join(sorted(set(x)))
+                    })
+                )
+                
+                # Converte tipos de dados
+                df_agrupado["LOJA KEY"] = df_agrupado["LOJA KEY"].astype(int)
+                df_agrupado["ENDEREÇO"] = df_agrupado["ENDEREÇO"].astype(int)
+                df_agrupado["CÓD. BARRAS"] = df_agrupado["CÓD. BARRAS"].astype(int)
+                df_agrupado["QNT. CONTADA"] = df_agrupado["QNT. CONTADA"].astype(float)
+                
+                self.log_message(self.monitor_log, "Dados processados e agrupados com sucesso")
+            except Exception as e:
+                raise ValueError(f"Erro ao processar dados: {str(e)}")
+            
+            # Atualiza ou cria o arquivo consolidado
+            if os.path.exists(consolidados_file):
+                try:
+                    df_consolidado = pd.read_csv(consolidados_file, sep=";")
+                    df_consolidado = pd.concat([df_consolidado, df_agrupado])
+                    self.log_message(self.monitor_log, "Arquivo consolidado existente carregado para atualização")
+                except Exception as e:
+                    raise ValueError(f"Erro ao ler arquivo consolidado: {str(e)}")
+            else:
+                df_consolidado = df_agrupado
+                self.log_message(self.monitor_log, "Criando novo arquivo consolidado")
+            
+            # Remove duplicatas
+            try:
+                df_consolidado = (
+                    df_consolidado.groupby(["LOJA KEY", "ENDEREÇO", "CÓD. BARRAS"], as_index=False)
+                    .agg({
+                        "QNT. CONTADA": "sum",
+                        "OPERADOR": lambda x: "/".join(sorted(set(x)))
+                    })
+                )
+                self.log_message(self.monitor_log, "Duplicatas removidas com sucesso")
+            except Exception as e:
+                raise ValueError(f"Erro ao remover duplicatas: {str(e)}")
+            
+            # Salva o arquivo consolidado
+            try:
+                df_consolidado.to_csv(consolidados_file, index=False, sep=";")
+                self.log_message(self.monitor_log, f"Arquivo consolidado salvo em: {consolidados_file}")
+            except Exception as e:
+                raise ValueError(f"Erro ao salvar arquivo consolidado: {str(e)}")
+            
+            # Se existir o arquivo output.csv, faz a consolidação final
+            if os.path.exists(output_file):
+                self.consolidar_dados_automatico(inventory_name)
+            
+            self.logger.info(f"Arquivo processado com sucesso: {file_path}")
+            self.root.after(0, lambda: [
+                self.log_message(self.monitor_log, "=== PROCESSAMENTO CONCLUÍDO ==="),
+                self.log_message(self.monitor_log, "Arquivo processado com sucesso!"),
+                self.status_var.set("Arquivo processado com sucesso!")
+            ])
+            
+        except Exception as e:
+            error_msg = f"ERRO ao processar {file_path}: {str(e)}\n{traceback.format_exc()}"
+            self.logger.error(error_msg)
+            self.root.after(0, lambda: [
+                self.log_message(self.monitor_log, "=== ERRO NO PROCESSAMENTO ==="),
+                self.log_message(self.monitor_log, error_msg),
+                self.status_var.set("Erro no processamento automático")
+            ])
+            raise
+    
+    def consolidar_dados_automatico(self, inventory_name):
+        """Consolida os dados com mensagens detalhadas"""
+        self.logger.info(f"Iniciando consolidação automática para {inventory_name}")
+        self.root.after(0, lambda: [
+            self.status_var.set(f"Consolidando dados para {inventory_name}..."),
+            self.log_message(self.monitor_log, f"\nIniciando consolidação automática para {inventory_name}")
+        ])
+        
+        try:
+            dados_dir = os.path.join("Inventário", inventory_name, "dados_processados")
+            output_file = os.path.join(dados_dir, "output.csv")
+            consolidados_file = os.path.join(dados_dir, "dados_consolidados.csv")
+            dados_tela_file = os.path.join(dados_dir, "arquivo_exibir.csv")
+            
+            # Verifica se os arquivos existem
+            if not os.path.exists(output_file):
+                raise FileNotFoundError(f"Arquivo 'output.csv' não encontrado em {dados_dir}")
+            if not os.path.exists(consolidados_file):
+                raise FileNotFoundError(f"Arquivo 'dados_consolidados.csv' não encontrado em {dados_dir}")
+            
+            # Lê os arquivos
+            try:
+                df_output = pd.read_csv(output_file, sep=";")
+                df_consolidados = pd.read_csv(consolidados_file, sep=";")
+                
+                # Limpa nomes de colunas
+                df_output.columns = df_output.columns.str.strip()
+                df_consolidados.columns = df_consolidados.columns.str.strip()
+                
+                self.log_message(self.monitor_log, "Arquivos lidos com sucesso")
+            except Exception as e:
+                raise ValueError(f"Erro ao ler arquivos para consolidação: {str(e)}")
+            
+            # Verifica colunas necessárias
+            if "GTIN" not in df_output.columns:
+                raise ValueError("Coluna 'GTIN' não encontrada no arquivo output.csv")
+            if "CÓD. BARRAS" not in df_consolidados.columns:
+                raise ValueError("Coluna 'CÓD. BARRAS' não encontrada no arquivo dados_consolidados.csv")
+            
+            # Converte tipos de dados
+            try:
+                df_output["GTIN"] = pd.to_numeric(df_output["GTIN"], errors="coerce")
+                df_consolidados["CÓD. BARRAS"] = pd.to_numeric(df_consolidados["CÓD. BARRAS"], errors="coerce")
+                self.log_message(self.monitor_log, "Dados convertidos para tipos numéricos")
+            except Exception as e:
+                raise ValueError(f"Erro ao converter tipos de dados: {str(e)}")
+            
+            # Combina os dados
+            try:
+                df_tela = pd.merge(
+                    df_output,
+                    df_consolidados,
+                    left_on="GTIN",
+                    right_on="CÓD. BARRAS",
+                    how="outer"
+                )
+                self.log_message(self.monitor_log, "Dados combinados com sucesso")
+            except Exception as e:
+                raise ValueError(f"Erro ao combinar dados: {str(e)}")
+            
+            # Salva o resultado
+            try:
+                df_tela.to_csv(dados_tela_file, index=False, sep=";")
+                self.logger.info(f"Dados consolidados salvos em: {dados_tela_file}")
+                self.root.after(0, lambda: [
+                    self.log_message(self.monitor_log, f"Consolidação concluída: {dados_tela_file}"),
+                    self.status_var.set("Consolidação concluída!")
+                ])
+            except Exception as e:
+                raise ValueError(f"Erro ao salvar arquivo consolidado: {str(e)}")
+            
+        except Exception as e:
+            error_msg = f"ERRO na consolidação automática: {str(e)}\n{traceback.format_exc()}"
+            self.logger.error(error_msg)
+            self.root.after(0, lambda: [
+                self.log_message(self.monitor_log, "=== ERRO NA CONSOLIDAÇÃO ==="),
+                self.log_message(self.monitor_log, error_msg),
+                self.status_var.set("Erro na consolidação automática")
+            ])
+            raise
+    
     def processar_txt(self):
-        """Processa o arquivo TXT selecionado"""
+        """Processa o arquivo TXT selecionado com feedback visual melhorado"""
         txt_file = self.txt_file_path.get()
         inventory = self.selected_inventory.get()
         
@@ -353,11 +759,15 @@ class InventarioApp:
             messagebox.showerror("Erro", "Selecione um inventário!")
             return
         
-        # Executa em uma thread separada
+        # Desabilita o botão durante o processamento
+        self.process_button.config(state='disabled')
+        self.status_var.set(f"Processando {os.path.basename(txt_file)}...")
+        self.log_message(self.process_log, f"\n=== INICIANDO PROCESSAMENTO ===")
+        self.log_message(self.process_log, f"Arquivo: {txt_file}")
+        self.log_message(self.process_log, f"Destino: {inventory}")
+        self.log_message(self.process_log, f"Data/Hora: {time.strftime('%d/%m/%Y %H:%M:%S')}")
+        
         def run():
-            self.status_var.set(f"Processando arquivo: {os.path.basename(txt_file)}...")
-            self.log_message(self.process_log, f"Iniciando processamento do arquivo: {txt_file}")
-            
             try:
                 # Configura caminhos
                 input_path = txt_file
@@ -366,25 +776,40 @@ class InventarioApp:
                 output_path = os.path.join(output_folder, "output.csv")
                 
                 # Processa o arquivo
+                start_time = time.time()
                 df = self.processar_arquivo_txt(input_path, output_path)
+                elapsed_time = time.time() - start_time
                 
                 # Atualiza a interface
-                self.root.after(0, lambda: messagebox.showinfo(
-                    "Sucesso",
-                    f"Arquivo processado com sucesso!\n"
-                    f"Registros processados: {len(df)}\n"
-                    f"Salvo em: {output_path}"
-                ))
+                self.root.after(0, lambda: [
+                    messagebox.showinfo(
+                        "Sucesso",
+                        f"Arquivo processado com sucesso!\n"
+                        f"Registros: {len(df)}\n"
+                        f"Tempo: {elapsed_time:.2f} segundos\n"
+                        f"Salvo em: {output_path}"
+                    ),
+                    self.process_button.config(state='normal'),
+                    self.status_var.set("Processamento concluído!"),
+                    self.log_message(self.process_log, f"=== PROCESSAMENTO CONCLUÍDO ==="),
+                    self.log_message(self.process_log, f"Tempo total: {elapsed_time:.2f} segundos"),
+                    self.log_message(self.process_log, f"Registros processados: {len(df)}"),
+                    self.log_message(self.process_log, f"Arquivo gerado: {output_path}")
+                ])
                 
             except Exception as e:
-                self.root.after(0, lambda: messagebox.showerror(
-                    "Erro",
-                    f"Falha ao processar arquivo TXT:\n{str(e)}"
-                ))
-                self.logger.error(f"Erro no processamento: {str(e)}")
+                error_msg = f"ERRO: {str(e)}\n{traceback.format_exc()}"
+                self.logger.error(error_msg)
+                self.root.after(0, lambda: [
+                    messagebox.showerror("Erro no Processamento", f"Falha ao processar arquivo:\n{str(e)}"),
+                    self.process_button.config(state='normal'),
+                    self.status_var.set("Erro no processamento"),
+                    self.log_message(self.process_log, "=== ERRO NO PROCESSAMENTO ==="),
+                    self.log_message(self.process_log, error_msg)
+                ])
                 
             finally:
-                self.status_var.set("Pronto")
+                self.root.after(3000, lambda: self.status_var.set("Pronto"))
         
         threading.Thread(target=run, daemon=True).start()
     
@@ -438,11 +863,14 @@ class InventarioApp:
             messagebox.showerror("Erro", "Selecione um inventário!")
             return
         
-        # Executa em uma thread separada
+        # Desabilita o botão durante a consolidação
+        self.consolidate_button.config(state='disabled')
+        self.status_var.set(f"Consolidando dados: {inventory}...")
+        self.log_message(self.consolidate_log, f"\n=== INICIANDO CONSOLIDAÇÃO ===")
+        self.log_message(self.consolidate_log, f"Inventário: {inventory}")
+        self.log_message(self.consolidate_log, f"Data/Hora: {time.strftime('%d/%m/%Y %H:%M:%S')}")
+        
         def run():
-            self.status_var.set(f"Consolidando dados: {inventory}...")
-            self.log_message(self.consolidate_log, f"Iniciando consolidação para: {inventory}")
-            
             try:
                 # Configura caminhos
                 dados_dir = os.path.join("Inventário", inventory, "dados_processados")
@@ -458,7 +886,7 @@ class InventarioApp:
                 
                 # Atualiza progresso
                 for i in range(1, 11):
-                    time.sleep(0.5)  # Simula processamento
+                    time.sleep(0.3)  # Simula processamento
                     self.progress['value'] = i * 10
                     self.root.update_idletasks()
                 
@@ -469,6 +897,8 @@ class InventarioApp:
                 # Limpa nomes de colunas
                 df_output.columns = df_output.columns.str.strip()
                 df_consolidados.columns = df_consolidados.columns.str.strip()
+                
+                self.log_message(self.consolidate_log, "Arquivos carregados com sucesso")
                 
                 # Combina os dados
                 df_tela = pd.merge(
@@ -483,22 +913,35 @@ class InventarioApp:
                 df_tela.to_csv(dados_tela_file, index=False, sep=";")
                 
                 # Atualiza a interface
-                self.root.after(0, lambda: messagebox.showinfo(
-                    "Sucesso",
-                    f"Dados consolidados com sucesso!\n"
-                    f"Arquivo gerado: {dados_tela_file}"
-                ))
+                self.root.after(0, lambda: [
+                    messagebox.showinfo(
+                        "Sucesso",
+                        f"Dados consolidados com sucesso!\n"
+                        f"Arquivo gerado: {dados_tela_file}"
+                    ),
+                    self.consolidate_button.config(state='normal'),
+                    self.status_var.set("Consolidação concluída!"),
+                    self.log_message(self.consolidate_log, "=== CONSOLIDAÇÃO CONCLUÍDA ==="),
+                    self.log_message(self.consolidate_log, f"Arquivo gerado: {dados_tela_file}")
+                ])
                 
             except Exception as e:
-                self.root.after(0, lambda: messagebox.showerror(
-                    "Erro",
-                    f"Falha na consolidação:\n{str(e)}"
-                ))
-                self.logger.error(f"Erro na consolidação: {str(e)}")
+                error_msg = f"ERRO: {str(e)}\n{traceback.format_exc()}"
+                self.logger.error(error_msg)
+                self.root.after(0, lambda: [
+                    messagebox.showerror(
+                        "Erro",
+                        f"Falha na consolidação:\n{str(e)}"
+                    ),
+                    self.consolidate_button.config(state='normal'),
+                    self.status_var.set("Erro na consolidação"),
+                    self.log_message(self.consolidate_log, "=== ERRO NA CONSOLIDAÇÃO ==="),
+                    self.log_message(self.consolidate_log, error_msg)
+                ])
                 
             finally:
                 self.progress['value'] = 0
-                self.status_var.set("Pronto")
+                self.root.after(3000, lambda: self.status_var.set("Pronto"))
         
         threading.Thread(target=run, daemon=True).start()
     
@@ -515,6 +958,10 @@ class InventarioApp:
         if not os.path.exists(csv_path):
             messagebox.showerror("Erro", f"Arquivo não encontrado:\n{csv_path}")
             return
+        
+        # Desabilita o botão durante o carregamento
+        self.load_button.config(state='disabled')
+        self.status_var.set(f"Carregando dados: {inventory}...")
         
         try:
             # Limpa a treeview
@@ -538,9 +985,43 @@ class InventarioApp:
             # Atualiza informações
             self.info_label.config(text=f"Inventário: {inventory} | Registros: {len(df)}")
             
+            self.root.after(0, lambda: [
+                messagebox.showinfo(
+                    "Sucesso",
+                    f"Dados carregados com sucesso!\n"
+                    f"Registros: {len(df)}"
+                ),
+                self.load_button.config(state='normal'),
+                self.status_var.set("Dados carregados com sucesso!")
+            ])
+            
         except Exception as e:
-            messagebox.showerror("Erro", f"Falha ao carregar dados:\n{str(e)}")
-            self.logger.error(f"Erro ao carregar dados: {str(e)}")
+            error_msg = f"ERRO: {str(e)}\n{traceback.format_exc()}"
+            self.logger.error(error_msg)
+            self.root.after(0, lambda: [
+                messagebox.showerror("Erro", f"Falha ao carregar dados:\n{str(e)}"),
+                self.load_button.config(state='normal'),
+                self.status_var.set("Erro ao carregar dados"),
+                self.log_message(self.consolidate_log, "=== ERRO AO CARREGAR DADOS ==="),
+                self.log_message(self.consolidate_log, error_msg)
+            ])
+            
+        finally:
+            self.root.after(3000, lambda: self.status_var.set("Pronto"))
+    
+    def on_closing(self):
+        """Executa ao fechar a aplicação"""
+        try:
+            # Para o monitoramento se estiver ativo
+            if self.observer and self.observer.is_alive():
+                self.observer.stop()
+                self.observer.join()
+            
+            # Fecha a aplicação
+            self.root.destroy()
+        except Exception as e:
+            self.logger.error(f"Erro ao fechar aplicação: {str(e)}")
+            self.root.destroy()
 
 if __name__ == "__main__":
     root = tk.Tk()
@@ -548,7 +1029,7 @@ if __name__ == "__main__":
     # Configura um estilo moderno
     style = ttk.Style()
     style.theme_use('clam')
-    style.configure('Accent.TButton', foreground='white', background='#4a6ea9', font=('Arial', 10, 'bold'))
     
     app = InventarioApp(root)
+    root.protocol("WM_DELETE_WINDOW", app.on_closing)
     root.mainloop()
