@@ -1,0 +1,221 @@
+inventario_hades/
+├── core/               # Lógica principal do sistema
+│   ├── __init__.py
+│   ├── inventory_manager.py    # Gerencia inventários e pastas
+│   ├── file_processor.py       # Processamento de arquivos
+│   ├── data_combiner.py        # Combinação de dados
+│   └── config_manager.py       # Configurações (se aplicável)
+├── ui/                 # Interface do usuário
+│   ├── __init__.py
+│   ├── main_window.py          # Janela principal
+│   ├── inventory_view.py       # Visualização de dados
+│   ├── import_dialog.py        # Diálogos de importação
+│   └── progress_dialog.py      # Diálogos de progresso
+├── utils/              # Utilitários
+│   ├── __init__.py
+│   ├── file_watcher.py         # Monitoramento de arquivos
+│   ├── validators.py           # Validação de dados
+│   └── logger.py               # Sistema de logs
+├── data/               # Dados dos inventários (gerado automaticamente)
+└── main.py             # Ponto de entrada
+
+Componentes Principais
+1. InventoryManager
+Arquivo: core/inventory_manager.py
+
+Responsabilidades:
+
+Criar e gerenciar inventários
+
+Manter controle do inventário ativo
+
+Listar inventários existentes
+
+Métodos Principais:
+
+create_inventory(inventory_name, store) - Cria novo inventário
+
+set_active_inventory(inventory_path) - Define inventário ativo
+
+get_inventory_list() - Lista todos inventários
+
+get_active_inventory_data_path() - Retorna caminho dos dados do inventário ativo
+
+2. FileProcessor
+Arquivo: core/file_processor.py
+
+Responsabilidades:
+
+Processar arquivos TXT iniciais
+
+Processar arquivos Excel de contagem
+
+Converter dados para formato parquet
+
+Métodos Principais:
+
+process_initial_txt(file_path, output_folder) - Processa TXT de estoque
+
+process_excel_file(file_path, output_folder) - Processa Excel de contagem
+
+3. DataCombiner
+Arquivo: core/data_combiner.py
+
+Responsabilidades:
+
+Combinar dados iniciais com contagens físicas
+
+Calcular diferenças de estoque
+
+Monitorar pasta para atualizações automáticas
+
+Métodos Principais:
+
+combine_data() - Combina todos os dados
+
+start_watching(interval) - Inicia monitoramento automático
+
+stop_watching() - Para monitoramento
+
+4. Interface Gráfica
+Arquivos principais:
+
+ui/main_window.py - Janela principal
+
+ui/inventory_view.py - Visualização de dados
+
+ui/import_dialog.py - Diálogos de importação
+
+Fluxo Principal:
+
+Usuário cria/seleciona inventário
+
+Importa arquivo TXT com dados iniciais
+
+Adiciona arquivos Excel com contagens
+
+Sistema combina dados e mostra diferenças
+
+2. Arquivo Excel de Contagem
+Formato simplificado:
+
+Coluna A: LOJA_KEY
+
+Coluna B: OPERADOR
+
+Coluna C: ENDERECO
+
+Coluna D: COD_BARRAS
+
+(QNT_CONTADA é definida como 1 automaticamente)
+
+Fluxo de Dados
+Criação de Inventário
+
+Cria estrutura de pastas
+
+Armazena metadados
+
+Importação TXT Inicial
+
+Processa e converte para initial_data.parquet
+
+Valida estrutura do arquivo
+
+Importação Excel
+
+Processa e salva como contagem_[timestamp].parquet
+
+Aceita apenas as 4 primeiras colunas
+
+Combinação de Dados
+
+Agrupa contagens por código de barras
+
+Combina com dados iniciais
+
+Calcula diferenças
+
+Gera combined_data.parquet
+
+Dicionário de Dados
+Arquivo Combinado Final (combined_data.parquet)
+Coluna	Tipo	Descrição
+GTIN	string	Código de barras (13 dígitos)
+Descricao	string	Descrição do produto
+Estoque	int	Quantidade teórica em estoque
+COD_BARRAS	string	Código de barras da contagem
+QNT_CONTADA	int	Quantidade contada (soma)
+OPERADOR	string	Operadores envolvidos (concatenados)
+ENDERECO	string	Endereços de contagem (concatenados)
+DIFERENCA	int	Diferença (QNT_CONTADA - Estoque)
+DIFERENCA_PERC	float	Percentual de diferença
+Padrões de Codificação
+Nomes de variáveis e funções:
+
+snake_case para variáveis e funções
+
+PascalCase para classes
+
+Tipagem:
+
+Uso de type hints em todas funções
+
+Validação de tipos nos métodos públicos
+
+Tratamento de erros:
+
+Uso de logging para registrar erros
+
+Mensagens claras para o usuário
+
+Dependências
+Lista de pacotes necessários (requirements.txt):
+
+pandas>=1.3.0
+pyarrow>=6.0.0
+openpyxl>=3.0.0
+pandastable>=0.12.0
+
+
+Melhorias Futuras
+Relatórios:
+
+Exportar para PDF/Excel
+
+Gráficos de análise
+
+Controle de Qualidade:
+
+Validação de dados mais robusta
+
+Histórico de alterações
+
+Performance:
+
+Processamento em lotes para grandes arquivos
+
+Cache de dados
+
+Guia de Desenvolvimento
+Para adicionar novo processamento:
+
+Crie novo método em file_processor.py
+
+Atualize data_combiner.py para lidar com o novo formato
+
+Adicione opção na interface
+
+Para modificar a visualização:
+
+Edite inventory_view.py
+
+Atualize métodos de exibição
+
+Para adicionar validações:
+
+Utilize utils/validators.py
+
+Adicione verificações nos métodos de processamento
+
+Esta documentação pode ser expandida com exemplos de código específicos ou diagramas de fluxo conforme necessário. Recomendo manter um arquivo CHANGELOG.md para registrar alterações significativas no sistema.
