@@ -1,0 +1,98 @@
+2025-03-28 15:59:25,472 - hades - INFO - Nenhum arquivo de dados combinados encontrado
+2025-03-28 16:07:02,073 - hades - INFO - Nenhum arquivo de dados combinados encontrado
+2025-03-28 16:07:08,708 - hades - ERROR - Erro ao carregar dados combinados: The truth value of a DataFrame is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+Traceback (most recent call last):
+  File "C:\Users\miqueias.silva\Documents\HADES\ui\main_window.py", line 440, in refresh_data
+    self.inventory_view.display_data(df)
+  File "C:\Users\miqueias.silva\Documents\HADES\ui\inventory_view.py", line 62, in display_data
+    self._apply_styling()
+  File "C:\Users\miqueias.silva\Documents\HADES\ui\inventory_view.py", line 69, in _apply_styling
+    if not self.table or not self.current_data:
+                             ^^^^^^^^^^^^^^^^^
+  File "c:\Users\miqueias.silva\AppData\Local\Programs\Python\Python312\Lib\site-packages\pandas\core\generic.py", line 1577, in __nonzero__
+    raise ValueError(
+ValueError: The truth value of a DataFrame is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2025-03-28 16:17:19,426 - hades - ERROR - Erro ao carregar dados combinados: The truth value of a DataFrame is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+Traceback (most recent call last):
+  File "C:\Users\miqueias.silva\Documents\HADES\ui\main_window.py", line 440, in refresh_data
+    self.inventory_view.display_data(df)
+  File "C:\Users\miqueias.silva\Documents\HADES\ui\inventory_view.py", line 62, in display_data
+    )
+  File "C:\Users\miqueias.silva\Documents\HADES\ui\inventory_view.py", line 69, in _apply_styling
+    self.status_var.set(f"Exibindo {len(data)} registros | {len(data.columns)} colunas")
+                             ^^^^^^^^^^^^^^^^^
+  File "c:\Users\miqueias.silva\AppData\Local\Programs\Python\Python312\Lib\site-packages\pandas\core\generic.py", line 1577, in __nonzero__
+    raise ValueError(
+ValueError: The truth value of a DataFrame is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2025-03-28 16:19:28,493 - hades - ERROR - Erro ao carregar dados combinados: The truth value of a DataFrame is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+Traceback (most recent call last):
+  File "C:\Users\miqueias.silva\Documents\HADES\ui\main_window.py", line 440, in refresh_data
+    self.inventory_view.display_data(df)
+  File "C:\Users\miqueias.silva\Documents\HADES\ui\inventory_view.py", line 62, in display_data
+    )
+  File "C:\Users\miqueias.silva\Documents\HADES\ui\inventory_view.py", line 69, in _apply_styling
+    self.status_var.set(f"Exibindo {len(data)} registros | {len(data.columns)} colunas")
+                             ^^^^^^^^^^^^^^^^^
+  File "c:\Users\miqueias.silva\AppData\Local\Programs\Python\Python312\Lib\site-packages\pandas\core\generic.py", line 1577, in __nonzero__
+    raise ValueError(
+ValueError: The truth value of a DataFrame is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2025-03-28 16:21:00,224 - hades - ERROR - Erro ao carregar dados combinados: The truth value of a DataFrame is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+Traceback (most recent call last):
+  File "C:\Users\miqueias.silva\Documents\HADES\ui\main_window.py", line 440, in refresh_data
+    self.inventory_view.display_data(df)
+  File "C:\Users\miqueias.silva\Documents\HADES\ui\inventory_view.py", line 62, in display_data
+    )
+  File "C:\Users\miqueias.silva\Documents\HADES\ui\inventory_view.py", line 69, in _apply_styling
+    self.status_var.set(f"Exibindo {len(data)} registros | {len(data.columns)} colunas")
+                             ^^^^^^^^^^^^^^^^^
+  File "c:\Users\miqueias.silva\AppData\Local\Programs\Python\Python312\Lib\site-packages\pandas\core\generic.py", line 1577, in __nonzero__
+    raise ValueError(
+ValueError: The truth value of a DataFrame is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2025-03-28 16:23:36,760 - hades - ERROR - Erro ao carregar dados combinados: The truth value of a DataFrame is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+Traceback (most recent call last):
+  File "C:\Users\miqueias.silva\Documents\HADES\ui\main_window.py", line 440, in refresh_data
+    self.inventory_view.display_data(df)
+  File "C:\Users\miqueias.silva\Documents\HADES\ui\inventory_view.py", line 62, in display_data
+    )
+  File "C:\Users\miqueias.silva\Documents\HADES\ui\inventory_view.py", line 69, in _apply_styling
+    self.status_var.set(f"Exibindo {len(data)} registros | {len(data.columns)} colunas")
+                             ^^^^^^^^^^^^^^^^^
+  File "c:\Users\miqueias.silva\AppData\Local\Programs\Python\Python312\Lib\site-packages\pandas\core\generic.py", line 1577, in __nonzero__
+    raise ValueError(
+ValueError: The truth value of a DataFrame is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2025-03-28 16:24:31,211 - hades - ERROR - Erro ao carregar dados combinados: The truth value of a DataFrame is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+Traceback (most recent call last):
+  File "C:\Users\miqueias.silva\Documents\HADES\ui\main_window.py", line 440, in refresh_data
+    self.inventory_view.display_data(df)
+  File "C:\Users\miqueias.silva\Documents\HADES\ui\inventory_view.py", line 62, in display_data
+    )
+  File "C:\Users\miqueias.silva\Documents\HADES\ui\inventory_view.py", line 69, in _apply_styling
+    self.status_var.set(f"Exibindo {len(data)} registros | {len(data.columns)} colunas")
+                             ^^^^^^^^^^^^^^^^^
+  File "c:\Users\miqueias.silva\AppData\Local\Programs\Python\Python312\Lib\site-packages\pandas\core\generic.py", line 1577, in __nonzero__
+    raise ValueError(
+ValueError: The truth value of a DataFrame is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2025-03-28 16:25:07,414 - hades - ERROR - Erro ao carregar dados combinados: The truth value of a DataFrame is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+Traceback (most recent call last):
+  File "C:\Users\miqueias.silva\Documents\HADES\ui\main_window.py", line 440, in refresh_data
+    self.inventory_view.display_data(df)
+  File "C:\Users\miqueias.silva\Documents\HADES\ui\inventory_view.py", line 62, in display_data
+    )
+  File "C:\Users\miqueias.silva\Documents\HADES\ui\inventory_view.py", line 69, in _apply_styling
+    self.status_var.set(f"Exibindo {len(data)} registros | {len(data.columns)} colunas")
+                             ^^^^^^^^^^^^^^^^^
+  File "c:\Users\miqueias.silva\AppData\Local\Programs\Python\Python312\Lib\site-packages\pandas\core\generic.py", line 1577, in __nonzero__
+    raise ValueError(
+ValueError: The truth value of a DataFrame is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2025-03-28 16:34:21,531 - hades - ERROR - Erro ao carregar dados combinados: The truth value of a DataFrame is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+Traceback (most recent call last):
+  File "C:\Users\miqueias.silva\Documents\HADES\ui\main_window.py", line 440, in refresh_data
+    self.inventory_view.display_data(df)
+  File "C:\Users\miqueias.silva\Documents\HADES\ui\inventory_view.py", line 62, in display_data
+    )
+  File "C:\Users\miqueias.silva\Documents\HADES\ui\inventory_view.py", line 69, in _apply_styling
+    self.status_var.set(f"Exibindo {len(data)} registros | {len(data.columns)} colunas")
+                             ^^^^^^^^^^^^^^^^^
+  File "c:\Users\miqueias.silva\AppData\Local\Programs\Python\Python312\Lib\site-packages\pandas\core\generic.py", line 1577, in __nonzero__
+    raise ValueError(
+ValueError: The truth value of a DataFrame is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
