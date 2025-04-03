@@ -1,3 +1,4 @@
+#main.py
 #!/usr/bin/env python3
 # Shebang - Indica que o script deve ser executado pelo interpretador Python 3
 

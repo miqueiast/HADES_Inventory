@@ -140,3 +140,64 @@ OSError: Invalid column metadata (corrupt file?)
 2025-04-03 12:00:31,259 - hades - INFO - Nenhum arquivo de dados combinados encontrado
 2025-04-03 12:08:42,039 - hades - INFO - Nenhum arquivo de dados combinados encontrado
 2025-04-03 13:55:17,768 - hades - INFO - Nenhum arquivo de dados combinados encontrado
+2025-04-03 14:49:06,104 - hades - ERROR - Erro ao criar inventário: 'ConfigManager' object is not callable
+Traceback (most recent call last):
+  File "C:\Users\miqueias.silva\Documents\HADES\ui\main_window.py", line 280, in _handle_create_inventory
+    with self._operation_in_progress():
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\miqueias.silva\Documents\HADES\ui\main_window.py", line 480, in __enter__
+    self.window.set_cursor("watch")
+  File "C:\Users\miqueias.silva\Documents\HADES\ui\main_window.py", line 512, in set_cursor
+    self.config(cursor=cursor_type)
+TypeError: 'ConfigManager' object is not callable
+2025-04-03 14:53:09,486 - hades - ERROR - Erro ao criar inventário: 'ConfigManager' object is not callable
+Traceback (most recent call last):
+  File "C:\Users\miqueias.silva\Documents\HADES\ui\main_window.py", line 280, in _handle_create_inventory
+    with self._operation_in_progress():
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\miqueias.silva\Documents\HADES\ui\main_window.py", line 480, in __enter__
+    self.window.set_cursor("watch")
+  File "C:\Users\miqueias.silva\Documents\HADES\ui\main_window.py", line 512, in set_cursor
+    self.config(cursor=cursor_type)
+TypeError: 'ConfigManager' object is not callable
+2025-04-03 14:55:16,119 - hades - INFO - Processando...
+2025-04-03 14:55:17,052 - hades - INFO - Processando...
+2025-04-03 14:55:17,073 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
+2025-04-03 14:55:17,084 - hades - INFO - Pronto
+2025-04-03 14:55:18,902 - hades - INFO - Pronto
+2025-04-03 14:55:35,305 - hades - INFO - Processando...
+2025-04-03 14:55:35,347 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
+2025-04-03 14:55:35,349 - hades - INFO - Pronto
+2025-04-03 14:55:40,801 - hades - INFO - Processando...
+2025-04-03 15:14:31,266 - hades - INFO - Processando...
+2025-04-03 15:15:54,470 - hades - INFO - Processando...
+2025-04-03 15:24:46,194 - hades - INFO - Processando...
+2025-04-03 15:24:46,344 - hades - INFO - Processando...
+2025-04-03 15:24:46,379 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
+2025-04-03 15:24:46,379 - hades - INFO - Pronto
+2025-04-03 15:24:47,655 - hades - INFO - Pronto
+2025-04-03 15:25:07,722 - hades - INFO - Processando...
+2025-04-03 15:25:07,764 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
+2025-04-03 15:25:07,765 - hades - INFO - Pronto
+2025-04-03 15:25:13,530 - hades - INFO - Processando...
+2025-04-03 15:28:17,068 - hades - INFO - Pronto
+2025-04-03 15:40:48,050 - hades - INFO - Processando...
+2025-04-03 15:40:49,063 - hades - INFO - Processando...
+2025-04-03 15:40:49,129 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
+2025-04-03 15:40:49,129 - hades - INFO - Pronto
+2025-04-03 15:40:50,189 - hades - INFO - Pronto
+2025-04-03 15:41:02,581 - hades - INFO - Processando...
+2025-04-03 15:41:02,612 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
+2025-04-03 15:41:02,632 - hades - INFO - Pronto
+2025-04-03 15:41:12,455 - hades - INFO - Processando...
+2025-04-03 15:41:14,590 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 1106652
+2025-04-03 15:41:14,590 - hades - INFO - Pronto
+2025-04-03 15:42:12,767 - hades - INFO - Processando...
+2025-04-03 15:42:17,900 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 1106652
+2025-04-03 15:42:17,941 - hades - INFO - Pronto
+2025-04-03 15:42:22,341 - hades - INFO - Processando...
+2025-04-03 15:42:24,579 - hades - INFO - Dados carregados | Itens com excesso: 1307 | Itens faltando: 0 | Total: 1106652
+2025-04-03 15:42:24,579 - hades - INFO - Pronto
+2025-04-03 15:49:46,257 - hades - INFO - Processando...
+2025-04-03 15:49:51,515 - hades - INFO - Dados carregados | Itens com excesso: 1307 | Itens faltando: 0 | Total: 1106652
+2025-04-03 15:49:51,516 - hades - INFO - Pronto

@@ -1,3 +1,4 @@
+#inventory_manager_dialog.py
 import tkinter as tk
 from tkinter import ttk
 from typing import Optional, Dict, Any
