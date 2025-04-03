@@ -36,7 +36,7 @@ class MainWindow(tk.Tk):
         
         # Gerenciadores
         self.config = ConfigManager()
-        self.watcher_active = self.config.get("watcher.enabled", True)  # Agora carrega da config
+        self.watcher_active = self.config.get("watcher.enabled", True)
         self.inventory_manager = InventoryManager()
         self.file_processor = FileProcessor(self.inventory_manager)
         self.data_combiner: Optional[DataCombiner] = None
@@ -157,10 +157,10 @@ class MainWindow(tk.Tk):
             # Configurações adicionais de estilo
             style.configure("TButton", padding=6)
             style.configure("TLabel", padding=2)
-            style.configure("TFrame", background="#f0f0f0")
+            style.configure("TFrame", background="#808080")
         except Exception as e:
             self.logger.error(f"Erro ao aplicar tema: {e}")
-    
+       
     def update_status(self, message: str):
         """Atualiza a barra de status"""
         self.status_var.set(message)
@@ -177,7 +177,6 @@ class MainWindow(tk.Tk):
         
         self.inventory_cb['values'] = display_items
         
-        # Se houver um inventário ativo, seleciona-o
         if self.inventory_manager.active_inventory:
             active_info = self.inventory_manager.get_active_inventory_info()
             if active_info:
@@ -329,7 +328,7 @@ class MainWindow(tk.Tk):
                         if self.watcher_active:
                             self.data_combiner.start_watching(
                                 self.config.get("watcher.interval", 60))
-                    
+                
                     self.refresh_data()
                     break
     
@@ -501,4 +500,7 @@ class MainWindow(tk.Tk):
             self.logger.error(f"Erro ao parar watcher: {e}")
         finally:
             self.destroy()
-            
+
+if __name__ == "__main__":
+    app = MainWindow()
+    app.mainloop()

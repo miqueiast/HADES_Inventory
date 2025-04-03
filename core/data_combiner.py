@@ -15,11 +15,11 @@ class DataCombiner:
         self.logger = logging.getLogger(__name__)
         
     def combine_data(self) -> bool:
-        """Combina dados de diferentes fontes, criando estrutura vazia se necessário"""
+        """Combina dados de diferentes fontes de forma robusta"""
         try:
             data_path = Path(self.data_folder)
             
-            # Verifica se existe initial_data, se não, cria estrutura vazia
+            # Carrega dados iniciais ou cria estrutura vazia
             initial_data_path = data_path / "initial_data.parquet"
             if not initial_data_path.exists():
                 self.logger.warning("Arquivo inicial não encontrado - criando estrutura vazia")
@@ -27,41 +27,63 @@ class DataCombiner:
                 df_initial.to_parquet(initial_data_path)
             else:
                 df_initial = pd.read_parquet(initial_data_path)
+                # Garante que as colunas necessárias existam
+                if 'GTIN' not in df_initial.columns:
+                    raise ValueError("Arquivo initial_data.parquet não contém coluna GTIN")
             
-            # Carrega arquivos de contagem ou cria DataFrame vazio
+            # Processa arquivos de contagem
             count_files = list(data_path.glob("contagem_*.parquet"))
             if count_files:
-                dfs = [pd.read_parquet(file) for file in count_files]
-                df_counts = pd.concat(dfs, ignore_index=True)
+                # Carrega e concatena todos os arquivos de contagem
+                dfs = []
+                for file in count_files:
+                    try:
+                        df = pd.read_parquet(file)
+                        if 'COD_BARRAS' in df.columns:
+                            dfs.append(df)
+                    except Exception as e:
+                        self.logger.error(f"Erro ao ler {file.name}: {e}")
                 
-                # Agrupa por código de barras
-                grouped = df_counts.groupby('COD_BARRAS').agg({
-                    'QNT_CONTADA': 'sum',
-                    'OPERADOR': lambda x: '/'.join(set(x.astype(str))),
-                    'ENDERECO': lambda x: '/'.join(set(x.astype(str)))
-                }).reset_index()
-                
-                # Faz o merge com os dados iniciais
-                merged = pd.merge(
-                    df_initial,
-                    grouped,
-                    how='left',
-                    left_on='GTIN',
-                    right_on='COD_BARRAS'
-                )
+                if dfs:
+                    df_counts = pd.concat(dfs, ignore_index=True)
+                    
+                    # Agrupa por código de barras
+                    grouped = df_counts.groupby('COD_BARRAS').agg({
+                        'QNT_CONTADA': 'sum',
+                        'OPERADOR': lambda x: ', '.join(set(x.astype(str))),
+                        'ENDERECO': lambda x: ', '.join(set(x.astype(str)))
+                    }).reset_index()
+                    
+                    # Merge com dados iniciais
+                    merged = pd.merge(
+                        df_initial,
+                        grouped,
+                        how='left',
+                        left_on='GTIN',
+                        right_on='COD_BARRAS'
+                    )
+                else:
+                    self.logger.warning("Nenhum arquivo de contagem válido encontrado")
+                    merged = df_initial.copy()
+                    merged['QNT_CONTADA'] = 0
+                    merged['OPERADOR'] = ''
+                    merged['ENDERECO'] = ''
+                    merged['COD_BARRAS'] = merged['GTIN']
             else:
-                self.logger.info("Nenhum arquivo de contagem - usando dados iniciais")
+                self.logger.info("Nenhum arquivo de contagem encontrado")
                 merged = df_initial.copy()
                 merged['QNT_CONTADA'] = 0
                 merged['OPERADOR'] = ''
                 merged['ENDERECO'] = ''
                 merged['COD_BARRAS'] = merged['GTIN']
             
-            # Calcula diferença
-            merged['DIFERENCA'] = merged['QNT_CONTADA'] - merged['Estoque']
-            
-            # Ordena por maior diferença
-            merged = merged.sort_values('DIFERENCA', ascending=False)
+            # Calcula diferenças e ordena
+            if 'Estoque' in merged.columns and 'QNT_CONTADA' in merged.columns:
+                merged['DIFERENCA'] = merged['QNT_CONTADA'] - merged['Estoque']
+                merged = merged.sort_values('DIFERENCA', ascending=False)
+            else:
+                self.logger.warning("Colunas necessárias para cálculo de diferença não encontradas")
+                merged['DIFERENCA'] = 0
             
             # Salva arquivo combinado
             output_path = data_path / self.combined_file
@@ -75,15 +97,21 @@ class DataCombiner:
             return False
     
     def _create_empty_initial_data(self) -> pd.DataFrame:
-        """Cria estrutura de dados inicial vazia"""
+        """Cria estrutura de dados inicial vazia com todas as colunas"""
         return pd.DataFrame({
             'GTIN': [],
+            'Codigo': [],
             'Descricao': [],
-            'Estoque': []
+            'Preco': [],
+            'Desconto': [],
+            'Custo': [],
+            'Secao': [],
+            'Estoque': [],
+            'Flag': []
         })
     
     def start_watching(self, interval: int = 60) -> None:
-        """Inicia observação da pasta para combinar dados automaticamente"""
+        """Inicia monitoramento automático da pasta"""
         if self.watching:
             return
             
@@ -95,7 +123,10 @@ class DataCombiner:
             while self.watching:
                 current_time = time.time()
                 if current_time - last_run >= interval:
-                    self.combine_data()
+                    try:
+                        self.combine_data()
+                    except Exception as e:
+                        self.logger.error(f"Erro no watcher: {e}")
                     last_run = current_time
                 time.sleep(5)
                 
@@ -103,7 +134,7 @@ class DataCombiner:
         self.watcher_thread.start()
     
     def stop_watching(self) -> None:
-        """Para a observação da pasta"""
+        """Para o monitoramento automático"""
         if self.watching:
             self.watching = False
             if self.watcher_thread:

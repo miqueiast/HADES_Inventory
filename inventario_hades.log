@@ -96,3 +96,47 @@ Traceback (most recent call last):
   File "c:\Users\miqueias.silva\AppData\Local\Programs\Python\Python312\Lib\site-packages\pandas\core\generic.py", line 1577, in __nonzero__
     raise ValueError(
 ValueError: The truth value of a DataFrame is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2025-03-28 17:17:06,440 - hades - ERROR - Erro ao carregar imagem inicial: [Errno 2] No such file or directory: 'hades.jpg'
+2025-03-28 17:31:32,050 - hades - ERROR - Erro ao carregar splash: [Errno 2] No such file or directory: 'C:\\Users\\miqueias.silva\\Documents\\HADES\\ui\\assets\\hades.jpeg'
+2025-03-28 17:33:20,180 - hades - ERROR - Erro ao carregar splash: module 'PIL.Image' has no attribute 'ANTIALIAS'
+2025-03-28 17:38:32,959 - hades - WARNING - Imagem splash não encontrada nos locais:
+2025-03-28 17:38:32,959 - hades - WARNING - - C:\Users\miqueias.silva\Documents\HADES\ui\assets\hades.jpeg
+2025-03-28 17:38:32,959 - hades - WARNING - - C:\Users\miqueias.silva\Documents\HADES\ui\hades.jpeg
+2025-03-28 17:38:32,959 - hades - WARNING - - C:\Users\miqueias.silva\Documents\HADES\ui\ui\assets\hades.jpeg
+2025-04-01 15:19:35,615 - hades - INFO - Nenhum arquivo de dados combinados encontrado
+2025-04-01 15:19:38,304 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
+2025-04-01 15:19:57,896 - hades - ERROR - Erro ao carregar dados combinados: Invalid column metadata (corrupt file?)
+Traceback (most recent call last):
+  File "C:\Users\miqueias.silva\Documents\HADES\ui\main_window.py", line 513, in refresh_data
+    df = pd.read_parquet(combined_file)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\Users\miqueias.silva\AppData\Local\Programs\Python\Python312\Lib\site-packages\pandas\io\parquet.py", line 667, in read_parquet
+    return impl.read(
+           ^^^^^^^^^^
+  File "c:\Users\miqueias.silva\AppData\Local\Programs\Python\Python312\Lib\site-packages\pandas\io\parquet.py", line 274, in read
+    pa_table = self.api.parquet.read_table(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\Users\miqueias.silva\AppData\Local\Programs\Python\Python312\Lib\site-packages\pyarrow\parquet\core.py", line 1843, in read_table
+    return dataset.read(columns=columns, use_threads=use_threads,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\Users\miqueias.silva\AppData\Local\Programs\Python\Python312\Lib\site-packages\pyarrow\parquet\core.py", line 1485, in read
+    table = self._dataset.to_table(
+            ^^^^^^^^^^^^^^^^^^^^^^^
+  File "pyarrow\\_dataset.pyx", line 574, in pyarrow._dataset.Dataset.to_table
+  File "pyarrow\\_dataset.pyx", line 3865, in pyarrow._dataset.Scanner.to_table
+  File "pyarrow\\error.pxi", line 155, in pyarrow.lib.pyarrow_internal_check_status
+  File "pyarrow\\error.pxi", line 92, in pyarrow.lib.check_status
+OSError: Invalid column metadata (corrupt file?)
+2025-04-01 15:25:16,580 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
+2025-04-01 15:25:20,220 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
+2025-04-01 15:25:20,460 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
+2025-04-01 15:25:20,643 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
+2025-04-01 15:25:43,590 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
+2025-04-01 15:25:55,163 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
+2025-04-01 15:27:37,432 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
+2025-04-03 11:15:36,449 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
+2025-04-03 11:27:27,509 - hades - INFO - Nenhum arquivo de dados combinados encontrado
+2025-04-03 11:48:35,003 - hades - INFO - Nenhum arquivo de dados combinados encontrado
+2025-04-03 12:00:31,259 - hades - INFO - Nenhum arquivo de dados combinados encontrado
+2025-04-03 12:08:42,039 - hades - INFO - Nenhum arquivo de dados combinados encontrado
+2025-04-03 13:55:17,768 - hades - INFO - Nenhum arquivo de dados combinados encontrado
