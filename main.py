@@ -1,7 +1,4 @@
 #main.py
-#!/usr/bin/env python3
-# Shebang - Indica que o script deve ser executado pelo interpretador Python 3
-
 # Importações de bibliotecas
 import tkinter as tk          # Para a interface gráfica
 import logging               # Para registro de logs

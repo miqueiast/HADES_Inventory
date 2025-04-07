@@ -1,3 +1,4 @@
+#inventory_view.py
 import tkinter as tk
 from tkinter import ttk
 import pandas as pd
@@ -133,7 +134,7 @@ class InventoryView(ttk.Frame):
             width=25
         ).pack(side=tk.LEFT)
     
-    def display_data(self, data: pd.DataFrame, max_rows: int = 5000):
+    def display_data(self, data: pd.DataFrame, max_rows: int = 1500000):
         """Exibe os dados na Treeview com tratamento robusto"""
         try:
             if not isinstance(data, pd.DataFrame) or data.empty:
