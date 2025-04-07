@@ -1,4 +1,4 @@
-#main_window.py
+# main_window.py
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 from pathlib import Path
@@ -7,6 +7,8 @@ import logging
 import threading
 import os
 import pandas as pd
+from datetime import datetime
+import time
 from core.inventory_manager import InventoryManager
 from core.file_processor import FileProcessor
 from core.data_combiner import DataCombiner
@@ -25,12 +27,13 @@ class MainWindow(tk.Tk):
         self.title("Inventário Grupo Mini Preço")
         self.geometry("1000x700")
         self.minsize(800, 600)
-        self.protocol("WM_DELETE_WINDOW", self.on_close)
+        self.protocol("WM_DELETE_WINDOW", self._on_close)  # Alterado para _on_close
         
         # Variáveis de estado
         self.current_data = None
         self.processing_lock = threading.Lock()
         self.watcher_active = True
+        self.last_backup_time = None
         
         # Configuração de logging
         self.logger = setup_logger(
@@ -48,11 +51,13 @@ class MainWindow(tk.Tk):
         
         # Carrega estado inicial
         self._load_initial_state()
+        self._create_enhanced_context_menu()
+        self._create_backup_manager()
 
     def _initialize_services(self):
         """Inicializa todos os serviços e gerenciadores"""
         try:
-            self.config_manager = ConfigManager()  # Renomeado para evitar conflito
+            self.config_manager = ConfigManager()
             self.watcher_active = self.config_manager.get("watcher.enabled", True)
             self.inventory_manager = InventoryManager()
             self.file_processor = FileProcessor(self.inventory_manager)
@@ -83,7 +88,8 @@ class MainWindow(tk.Tk):
             "new": self._create_toolbutton("Novo Inventário", self.create_inventory),
             "load": self._create_toolbutton("Carregar Dados Iniciais", self.load_initial_data, False),
             "import": self._create_toolbutton("Incluir Novos Dados", self.import_new_data, False),
-            "refresh": self._create_toolbutton("Atualizar Dados", self.refresh_data, False)
+            "refresh": self._create_toolbutton("Atualizar Dados", self.refresh_data, False),
+            "backup": self._create_toolbutton("Backup", self.manual_backup, False)
         }
         
         # Botão de monitoramento
@@ -136,15 +142,27 @@ class MainWindow(tk.Tk):
 
     def _setup_statusbar(self):
         """Configura a barra de status inferior"""
+        status_frame = ttk.Frame(self)
+        status_frame.pack(side=tk.BOTTOM, fill=tk.X)
+        
         self.status_var = tk.StringVar(value="Pronto")
-        self.status_bar = ttk.Label(
-            self,
+        ttk.Label(
+            status_frame,
             textvariable=self.status_var,
             relief=tk.SUNKEN,
             anchor=tk.W,
             padding=(5, 2)
-        )
-        self.status_bar.pack(side=tk.BOTTOM, fill=tk.X)
+        ).pack(side=tk.LEFT, fill=tk.X, expand=True)
+        
+        self.last_backup_var = tk.StringVar(value="")
+        ttk.Label(
+            status_frame,
+            textvariable=self.last_backup_var,
+            relief=tk.SUNKEN,
+            anchor=tk.E,
+            padding=(5, 2),
+            width=25
+        ).pack(side=tk.RIGHT)
 
     def _apply_theme(self):
         """Aplica o tema visual configurado"""
@@ -153,7 +171,6 @@ class MainWindow(tk.Tk):
             theme = self.config_manager.get("ui.theme", "clam")
             style.theme_use(theme)
             
-            # Configurações personalizadas
             style.configure("TButton", padding=6)
             style.configure("TLabel", padding=2)
             style.configure("TFrame", background="#f0f0f0")
@@ -165,7 +182,6 @@ class MainWindow(tk.Tk):
         """Carrega o estado inicial da aplicação"""
         self.update_inventory_list()
         
-        # Verifica se há um inventário ativo na sessão anterior
         active_path = self.config_manager.get("inventory.active_path")
         if active_path and Path(active_path).exists():
             self.inventory_manager.set_active_inventory(active_path)
@@ -182,11 +198,9 @@ class MainWindow(tk.Tk):
                 foreground="black"
             )
             
-            # Ativa botões dependentes
-            for btn in ["load", "import", "refresh"]:
+            for btn in ["load", "import", "refresh", "backup"]:
                 self.buttons[btn].config(state=tk.NORMAL)
             
-            # Inicializa o data_combiner
             data_path = self.inventory_manager.get_active_inventory_data_path()
             if data_path:
                 self.data_combiner = DataCombiner(data_path)
@@ -195,6 +209,7 @@ class MainWindow(tk.Tk):
                     self.data_combiner.start_watching(interval)
             
             self.refresh_data()
+            self._start_auto_backup()
         else:
             self._update_ui_for_no_inventory()
 
@@ -204,7 +219,7 @@ class MainWindow(tk.Tk):
             text="Nenhum inventário selecionado",
             foreground="gray"
         )
-        for btn in ["load", "import", "refresh"]:
+        for btn in ["load", "import", "refresh", "backup"]:
             self.buttons[btn].config(state=tk.DISABLED)
 
     def create_inventory(self):
@@ -213,7 +228,6 @@ class MainWindow(tk.Tk):
         dialog.title("Novo Inventário")
         dialog.resizable(False, False)
         
-        # Formulário
         ttk.Label(dialog, text="Nome do Inventário:").grid(row=0, column=0, padx=5, pady=5, sticky=tk.E)
         name_entry = ttk.Entry(dialog, width=30)
         name_entry.grid(row=0, column=1, padx=5, pady=5)
@@ -223,7 +237,6 @@ class MainWindow(tk.Tk):
         store_entry = ttk.Entry(dialog, width=30)
         store_entry.grid(row=1, column=1, padx=5, pady=5)
         
-        # Botões
         btn_frame = ttk.Frame(dialog)
         btn_frame.grid(row=2, column=0, columnspan=2, pady=10)
         
@@ -252,7 +265,6 @@ class MainWindow(tk.Tk):
 
     def _handle_create_inventory(self, name: str, store: str, dialog: tk.Toplevel):
         """Valida e processa a criação de novo inventário"""
-        # Validação
         errors = []
         name_error = validate_inventory_name(name)
         if name_error:
@@ -266,7 +278,6 @@ class MainWindow(tk.Tk):
             messagebox.showerror("Erro de Validação", "\n".join(errors))
             return
         
-        # Criação do inventário
         try:
             with self._operation_in_progress():
                 result = self.inventory_manager.create_inventory(name, store)
@@ -320,7 +331,7 @@ class MainWindow(tk.Tk):
             return
         
         self._run_operation_with_progress(
-            operation=lambda: self.file_processor.process_excel_file(file_path),
+            operation=lambda: self.file_processor.process_excel(file_path),
             title="Processando Excel",
             message="Processando arquivo de contagem...",
             success_msg="Dados importados com sucesso!",
@@ -333,84 +344,137 @@ class MainWindow(tk.Tk):
             self.update_status("Nenhum inventário ativo selecionado")
             return
         
-        def load_and_display():
+        def load_data():
             try:
-                with self._operation_in_progress():
-                    data_path = self.inventory_manager.get_active_inventory_data_path()
-                    if not data_path:
-                        self.after(0, lambda: self.update_status("Caminho de dados inválido"))
-                        return
-                        
-                    combined_file = Path(data_path) / "combined_data.parquet"
+                data_path = self.inventory_manager.get_active_inventory_data_path()
+                if not data_path:
+                    return None, "Caminho de dados inválido"
                     
-                    if not combined_file.exists():
-                        self.after(0, lambda: self.update_status("Arquivo combinado não encontrado"))
-                        return
-                        
-                    # Colunas necessárias
-                    required_cols = [
-                        'GTIN', 'Codigo', 'Descricao', 'Preco', 'Custo',
-                        'Estoque', 'QNT_CONTADA', 'COD_BARRAS', 'Flag'
-                    ]
+                combined_file = Path(data_path) / "combined_data.parquet"
+                
+                if not combined_file.exists():
+                    return None, "Arquivo combinado não encontrado"
                     
-                    # Lê apenas as colunas necessárias
-                    try:
-                        df = pd.read_parquet(combined_file, columns=required_cols)
-                    except Exception as e:
-                        self.logger.error(f"Erro ao ler parquet: {e}")
-                        # Fallback - lê todas as colunas e filtra depois
-                        df = pd.read_parquet(combined_file)
-                        df = df[required_cols] if all(col in df.columns for col in required_cols) else pd.DataFrame(columns=required_cols)
-                    
-                    # Garante que as colunas numéricas tenham o tipo correto
-                    numeric_cols = ['Estoque', 'QNT_CONTADA']
-                    for col in numeric_cols:
-                        if col in df.columns:
-                            df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
-                    
-                    # Calcula diferença
-                    if 'Estoque' in df.columns and 'QNT_CONTADA' in df.columns:
-                        df['DIFERENCA'] = df['QNT_CONTADA'] - df['Estoque']
-                    
-                    # Ordena por diferença (maiores no topo)
-                    if 'DIFERENCA' in df.columns:
-                        df = df.sort_values('DIFERENCA', ascending=False)
-                    
-                    # Atualiza UI na thread principal
-                    self.after(0, lambda: self._update_display(df))
+                required_cols = [
+                    'GTIN', 'Codigo', 'Descricao', 'Preco', 'Custo',
+                    'Estoque', 'QNT_CONTADA', 'COD_BARRAS', 'Flag'
+                ]
+                
+                try:
+                    df = pd.read_parquet(combined_file, columns=required_cols)
+                except Exception:
+                    df = pd.read_parquet(combined_file)
+                    df = df[required_cols] if all(col in df.columns for col in required_cols) else pd.DataFrame(columns=required_cols)
+                
+                numeric_cols = ['Estoque', 'QNT_CONTADA']
+                for col in numeric_cols:
+                    if col in df.columns:
+                        df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
+                
+                if 'Estoque' in df.columns and 'QNT_CONTADA' in df.columns:
+                    df['DIFERENCA'] = df['QNT_CONTADA'] - df['Estoque']
+                
+                if 'DIFERENCA' in df.columns:
+                    df = df.sort_values('DIFERENCA', ascending=False)
+                
+                return df, None
                     
             except Exception as e:
                 self.logger.error(f"Erro ao carregar dados: {e}", exc_info=True)
-                self.after(0, lambda: self._show_error(f"Erro ao carregar dados: {str(e)}"))
+                return None, f"Erro ao carregar dados: {str(e)}"
         
-        # Executa em thread separada
-        threading.Thread(target=load_and_display, daemon=True).start()
+        def on_data_loaded():
+            with self._operation_in_progress():
+                df, error = load_data()
+                if error:
+                    self.update_status(error)
+                    return
+                
+                self._update_display(df)
+        
+        # Executa o carregamento em thread separada
+        threading.Thread(
+            target=lambda: self.after(0, on_data_loaded),
+            daemon=True
+        ).start()
 
-    def toggle_watcher(self):
-        """Ativa/desativa o monitoramento automático"""
-        if not self.data_combiner:
+    def _update_display(self, df: pd.DataFrame):
+        """Atualiza a exibição dos dados na UI"""
+        self.current_data = df
+        self.inventory_view.display_data(df)
+        
+        if 'DIFERENCA' in df.columns:
+            pos_diff = (df['DIFERENCA'] > 0).sum()
+            neg_diff = (df['DIFERENCA'] < 0).sum()
+            status = (f"Dados carregados | Itens com excesso: {pos_diff} | "
+                     f"Itens faltando: {neg_diff} | Total: {len(df)}")
+        else:
+            status = f"Dados carregados | Total: {len(df)}"
+        
+        self.update_status(status)
+
+    def _operation_in_progress(self):
+        """Context manager para operações em andamento"""
+        class OperationContext:
+            def __init__(self, window):
+                self.window = window
+            
+            def __enter__(self):
+                if hasattr(self.window, 'set_cursor'):
+                    self.window.set_cursor("watch")
+                if hasattr(self.window, 'update_status'):
+                    self.window.update_status("Processando...")
+                self.window.update_idletasks()
+                return self
+            
+            def __exit__(self, exc_type, exc_val, exc_tb):
+                if hasattr(self.window, 'set_cursor'):
+                    self.window.set_cursor("")
+                if hasattr(self.window, 'update_status'):
+                    if exc_type is not None:
+                        self.window.update_status("Erro durante o processamento")
+                    else:
+                        self.window.update_status("Pronto")
+                self.window.update_idletasks()
+        
+        return OperationContext(self)
+
+    def _is_main_thread(self):
+        """Verifica se estamos na thread principal"""
+        import threading
+        return isinstance(threading.current_thread(), threading._MainThread)
+
+    def manual_backup(self):
+        """Executa um backup manual do inventário ativo"""
+        if not self.inventory_manager.active_inventory_path:
+            messagebox.showwarning("Aviso", "Nenhum inventário ativo para backup")
             return
         
-        self.watcher_active = not self.watcher_active
-        self.config_manager.set("watcher.enabled", self.watcher_active)
-        
         try:
-            if self.watcher_active:
-                interval = self.config_manager.get("watcher.interval", 60)
-                self.data_combiner.start_watching(interval)
-                message = "Monitoramento automático ativado"
-            else:
-                self.data_combiner.stop_watching()
-                message = "Monitoramento automático desativado"
-            
-            self._update_watcher_button()
-            self.update_status(message)
-            messagebox.showinfo("Monitoramento", message)
+            with self._operation_in_progress():
+                backup_path = self.inventory_manager.backup_inventory(
+                    self.inventory_manager.active_inventory_path
+                )
+                
+                if backup_path:
+                    self.last_backup_time = datetime.now()
+                    self.last_backup_var.set(
+                        f"Último backup: {self.last_backup_time.strftime('%d/%m/%Y %H:%M')}"
+                    )
+                    messagebox.showinfo(
+                        "Backup Concluído",
+                        f"Backup criado com sucesso em:\n{backup_path}"
+                    )
+                else:
+                    messagebox.showerror(
+                        "Erro",
+                        "Falha ao criar backup. Verifique os logs."
+                    )
         except Exception as e:
-            self.logger.error(f"Erro ao alternar monitoramento: {e}")
+            self.logger.error(f"Erro no backup manual: {e}", exc_info=True)
             messagebox.showerror(
                 "Erro",
-                f"Falha ao alternar monitoramento:\n{str(e)}"
+                f"Falha inesperada ao criar backup:\n{str(e)}"
             )
 
     def on_inventory_selected(self, event=None):
@@ -465,22 +529,6 @@ class MainWindow(tk.Tk):
         
         threading.Thread(target=execute, daemon=True).start()
 
-    def _update_display(self, df: pd.DataFrame):
-        """Atualiza a exibição dos dados na UI"""
-        self.current_data = df
-        self.inventory_view.display_data(df)
-        
-        # Atualiza status
-        if 'DIFERENCA' in df.columns:
-            pos_diff = (df['DIFERENCA'] > 0).sum()
-            neg_diff = (df['DIFERENCA'] < 0).sum()
-            status = (f"Dados carregados | Itens com excesso: {pos_diff} | "
-                     f"Itens faltando: {neg_diff} | Total: {len(df)}")
-        else:
-            status = f"Dados carregados | Total: {len(df)}"
-        
-        self.update_status(status)
-
     def _show_error(self, message: str):
         """Exibe uma mensagem de erro na UI"""
         self.update_status(message)
@@ -491,28 +539,6 @@ class MainWindow(tk.Tk):
         self.watcher_btn.config(
             text="Desativar Monitoramento" if self.watcher_active else "Ativar Monitoramento"
         )
-
-    def _operation_in_progress(self):
-        """Context manager para operações em andamento"""
-        class OperationContext:
-            def __init__(self, window):
-                self.window = window
-            
-            def __enter__(self):
-                self.window.set_cursor("watch")
-                self.window.update_status("Processando...")
-                self.window.update_idletasks()
-                return self
-            
-            def __exit__(self, exc_type, exc_val, exc_tb):
-                self.window.set_cursor("")
-                if exc_type is not None:
-                    self.window.update_status("Erro durante o processamento")
-                else:
-                    self.window.update_status("Pronto")
-                self.window.update_idletasks()
-        
-        return OperationContext(self)
 
     def update_inventory_list(self):
         """Atualiza a lista de inventários no combobox"""
@@ -541,33 +567,17 @@ class MainWindow(tk.Tk):
         y = (self.winfo_screenheight() // 2) - (height // 2)
         window.geometry(f"+{x}+{y}")
 
-    def on_close(self):
-        """Callback para fechar a aplicação"""
-        try:
-            if self.data_combiner:
-                self.data_combiner.stop_watching()
-            self.config_manager.save_config()
-        except Exception as e:
-            self.logger.error(f"Erro ao encerrar: {e}")
-        finally:
-            self.destroy()
-            
     def _create_enhanced_context_menu(self):
         """Adiciona um menu de contexto avançado à visualização de dados"""
         self.enhanced_context_menu = tk.Menu(self, tearoff=0)
-        
-        # Itens originais mantidos
         self.enhanced_context_menu.add_command(label="Copiar", command=self._copy_selected)
         self.enhanced_context_menu.add_command(label="Exportar Seleção", command=self.export_selection)
         self.enhanced_context_menu.add_separator()
-        
-        # Novas funcionalidades
         self.enhanced_context_menu.add_command(label="Validar Dados", command=self._validate_selected_data)
         self.enhanced_context_menu.add_command(label="Estatísticas", command=self._show_data_stats)
         self.enhanced_context_menu.add_separator()
         self.enhanced_context_menu.add_command(label="Atualizar", command=self.refresh_data)
 
-        # Vinculação segura
         if hasattr(self.inventory_view, 'bind_context_menu'):
             self.inventory_view.bind_context_menu(self.enhanced_context_menu)
 
@@ -579,7 +589,6 @@ class MainWindow(tk.Tk):
                 messagebox.showwarning("Aviso", "Nenhum dado selecionado para validação")
                 return
 
-            # Lógica de validação aprimorada
             validation_errors = []
             
             if 'GTIN' in selected_data.columns:
@@ -613,11 +622,9 @@ class MainWindow(tk.Tk):
             stats_window.title("Estatísticas dos Dados")
             stats_window.geometry("400x300")
 
-            # Frame principal
             main_frame = ttk.Frame(stats_window, padding="10")
             main_frame.pack(fill=tk.BOTH, expand=True)
 
-            # Cálculo de estatísticas
             stats_text = tk.Text(main_frame, wrap=tk.WORD)
             stats_text.pack(fill=tk.BOTH, expand=True)
 
@@ -631,7 +638,7 @@ class MainWindow(tk.Tk):
             
             if 'DIFERENCA' in selected_data.columns:
                 positives = selected_data[selected_data['DIFERENCA'] > 0]
-                negatives = selected_data[selected_data['DIFERENCA'] < 0]
+                negatives = selected_data[selected_data['DIFERCA'] < 0]
                 stats.append(f"Itens com excesso: {len(positives)}")
                 stats.append(f"Itens faltando: {len(negatives)}")
                 stats.append(f"Maior divergência: {selected_data['DIFERENCA'].max()}")
@@ -640,7 +647,6 @@ class MainWindow(tk.Tk):
             stats_text.insert(tk.END, "\n".join(stats))
             stats_text.config(state=tk.DISABLED)
 
-            # Botão de fechar
             ttk.Button(
                 main_frame,
                 text="Fechar",
@@ -655,15 +661,12 @@ class MainWindow(tk.Tk):
         """Adiciona gerenciamento automático de backups"""
         self.backup_thread = None
         self.backup_running = False
-        
-        # Configuração padrão
         self.backup_config = {
             'auto_backup': True,
-            'backup_interval': 3600,  # 1 hora
+            'backup_interval': 3600,
             'max_backups': 5
         }
         
-        # Carrega configurações salvas
         try:
             saved_config = self.config_manager.get("backup_config")
             if saved_config:
@@ -695,7 +698,6 @@ class MainWindow(tk.Tk):
                 except Exception as e:
                     self.logger.error(f"Erro no backup automático: {e}", exc_info=True)
                 
-                # Espera pelo intervalo configurado
                 for _ in range(self.backup_config['backup_interval']):
                     if not self.backup_running:
                         break
@@ -724,10 +726,48 @@ class MainWindow(tk.Tk):
         except Exception as e:
             self.logger.error(f"Erro na limpeza de backups: {e}", exc_info=True)
 
-    def on_close(self):
-        """Extensão do método original com novos recursos"""
-        # Para os serviços adicionais
+    def _on_close(self):
+        """Método para lidar com o fechamento da janela principal"""
         self.backup_running = False
+        try:
+            if hasattr(self, 'data_combiner') and self.data_combiner:
+                self.data_combiner.stop_watching()
+            if hasattr(self, 'config_manager') and self.config_manager:
+                self.config_manager.save_config()
+        except Exception as e:
+            self.logger.error(f"Erro ao encerrar: {e}")
+        finally:
+            self.destroy()
+
+    def toggle_watcher(self):
+        """Ativa/desativa o monitoramento automático"""
+        if not hasattr(self, 'data_combiner') or not self.data_combiner:
+            return
+        
+        self.watcher_active = not self.watcher_active
+        if hasattr(self, 'config_manager') and self.config_manager:
+            self.config_manager.set("watcher.enabled", self.watcher_active)
+        
+        try:
+            if self.watcher_active:
+                interval = self.config_manager.get("watcher.interval", 60) if hasattr(self, 'config_manager') else 60
+                self.data_combiner.start_watching(interval)
+                message = "Monitoramento automático ativado"
+            else:
+                self.data_combiner.stop_watching()
+                message = "Monitoramento automático desativado"
+            
+            if hasattr(self, '_update_watcher_button'):
+                self._update_watcher_button()
+            if hasattr(self, 'update_status'):
+                self.update_status(message)
+            messagebox.showinfo("Monitoramento", message)
+        except Exception as e:
+            self.logger.error(f"Erro ao alternar monitoramento: {e}")
+            messagebox.showerror(
+                "Erro",
+                f"Falha ao alternar monitoramento:\n{str(e)}"
+            )
 
 if __name__ == "__main__":
     app = MainWindow()

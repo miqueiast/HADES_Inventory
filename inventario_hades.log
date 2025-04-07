@@ -266,3 +266,71 @@ TypeError: 'ConfigManager' object is not callable
 2025-04-07 17:18:00,928 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
 2025-04-07 17:18:00,928 - hades - INFO - Pronto
 2025-04-07 17:18:04,190 - hades - INFO - Processando...
+2025-04-07 17:26:52,797 - hades - INFO - Processando...
+2025-04-07 17:26:52,928 - hades - INFO - Processando...
+2025-04-07 17:26:52,962 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
+2025-04-07 17:26:52,962 - hades - INFO - Pronto
+2025-04-07 17:26:53,874 - hades - INFO - Pronto
+2025-04-07 17:27:06,392 - hades - INFO - Processando...
+2025-04-07 17:27:06,691 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
+2025-04-07 17:27:06,691 - hades - INFO - Pronto
+2025-04-07 17:27:10,620 - hades - INFO - Processando...
+2025-04-07 17:27:11,859 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 31439 | Total: 887614
+2025-04-07 17:27:11,859 - hades - INFO - Pronto
+2025-04-07 17:27:32,092 - hades - ERROR - Erro na operação: 'FileProcessor' object has no attribute 'process_excel_file'
+Traceback (most recent call last):
+  File "C:\Users\miqueias.silva\Desktop\HADES_Inventory\ui\main_window.py", line 443, in execute
+    success, result = operation()
+                      ^^^^^^^^^^^
+  File "C:\Users\miqueias.silva\Desktop\HADES_Inventory\ui\main_window.py", line 323, in <lambda>
+    operation=lambda: self.file_processor.process_excel_file(file_path),
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'FileProcessor' object has no attribute 'process_excel_file'
+2025-04-07 17:32:38,271 - hades - CRITICAL - Falha na inicialização dos serviços: argument should be a str or an os.PathLike object where __fspath__ returns a str, not 'InventoryManager'
+Traceback (most recent call last):
+  File "C:\Users\miqueias.silva\Desktop\HADES_Inventory\ui\main_window.py", line 58, in _initialize_services
+    self.file_processor = FileProcessor(self.inventory_manager)
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\miqueias.silva\Desktop\HADES_Inventory\core\file_processor.py", line 19, in __init__
+    self.data_folder = Path(data_folder)
+                       ^^^^^^^^^^^^^^^^^
+  File "c:\Users\miqueias.silva\AppData\Local\Programs\Python\Python312\Lib\pathlib.py", line 1162, in __init__
+    super().__init__(*args)
+  File "c:\Users\miqueias.silva\AppData\Local\Programs\Python\Python312\Lib\pathlib.py", line 373, in __init__
+    raise TypeError(
+TypeError: argument should be a str or an os.PathLike object where __fspath__ returns a str, not 'InventoryManager'
+2025-04-07 17:33:40,017 - hades - INFO - Processando...
+2025-04-07 17:33:40,145 - hades - INFO - Processando...
+2025-04-07 17:33:40,166 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
+2025-04-07 17:33:40,167 - hades - INFO - Pronto
+2025-04-07 17:33:41,170 - hades - INFO - Pronto
+2025-04-07 17:33:59,479 - hades - INFO - Processando...
+2025-04-07 17:33:59,521 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
+2025-04-07 17:33:59,524 - hades - INFO - Pronto
+2025-04-07 17:34:19,657 - hades - INFO - Processando...
+2025-04-07 17:34:21,407 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 31439 | Total: 887614
+2025-04-07 17:34:21,408 - hades - INFO - Pronto
+2025-04-07 17:34:38,506 - hades - ERROR - Erro na operação: 'FileProcessor' object has no attribute 'process_excel_file'
+Traceback (most recent call last):
+  File "C:\Users\miqueias.silva\Desktop\HADES_Inventory\ui\main_window.py", line 443, in execute
+    success, result = operation()
+                      ^^^^^^^^^^^
+  File "C:\Users\miqueias.silva\Desktop\HADES_Inventory\ui\main_window.py", line 323, in <lambda>
+    operation=lambda: self.file_processor.process_excel_file(file_path),
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'FileProcessor' object has no attribute 'process_excel_file'. Did you mean: 'process_excel'?
+2025-04-07 17:40:43,428 - hades - ERROR - Erro ao carregar dados: main thread is not in main loop
+Traceback (most recent call last):
+  File "C:\Users\miqueias.silva\Desktop\HADES_Inventory\ui\main_window.py", line 350, in load_and_display
+    with self._operation_in_progress():
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\miqueias.silva\Desktop\HADES_Inventory\ui\main_window.py", line 538, in __enter__
+    self.window.set_cursor("watch")
+  File "C:\Users\miqueias.silva\Desktop\HADES_Inventory\ui\main_window.py", line 569, in set_cursor
+    self.configure(cursor=cursor_type)
+  File "c:\Users\miqueias.silva\AppData\Local\Programs\Python\Python312\Lib\tkinter\__init__.py", line 1722, in configure
+    return self._configure('configure', cnf, kw)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\Users\miqueias.silva\AppData\Local\Programs\Python\Python312\Lib\tkinter\__init__.py", line 1712, in _configure
+    self.tk.call(_flatten((self._w, cmd)) + self._options(cnf))
+RuntimeError: main thread is not in main loop

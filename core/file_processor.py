@@ -2,11 +2,12 @@
 import pandas as pd
 import re
 from pathlib import Path
-from typing import Tuple, Optional
+from typing import Tuple, Optional, Dict
 import logging
 import chardet
 from datetime import datetime
 import threading
+import openpyxl
 
 from .data_combiner import DataCombiner
 
@@ -14,6 +15,16 @@ class FileProcessor:
     def __init__(self, inventory_manager):
         self.inventory_manager = inventory_manager
         self.logger = logging.getLogger(__name__)
+        # Configurações para processamento de Excel
+        self.excel_column_mapping = {
+            'GTIN': ['EAN', 'GTIN', 'CÓDIGO DE BARRAS', 'CODIGO_BARRAS', 'CODIGO BARRAS'],
+            'Codigo': ['CÓDIGO', 'CODIGO', 'SKU', 'PRODUTO', 'ITEM'],
+            'Descricao': ['DESCRIÇÃO', 'DESCRICAO', 'NOME', 'PRODUTO'],
+            'Preco': ['PREÇO', 'PRECO', 'VALOR', 'PV', 'PRICE'],
+            'Estoque': ['ESTOQUE', 'QUANTIDADE', 'QTD', 'STOCK'],
+            'Custo': ['CUSTO', 'CMV', 'COST'],
+            'Secao': ['SEÇÃO', 'SECAO', 'DEPTO', 'DEPARTAMENTO', 'CATEGORIA']
+        }
 
     @staticmethod
     def detect_encoding(file_path: str) -> Optional[str]:
@@ -90,6 +101,124 @@ class FileProcessor:
             self.logger.error(f"Erro ao adicionar flags: {str(e)}", exc_info=True)
             df['Flag'] = 'Sem flag'
             return df
+
+    def _map_excel_columns(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Mapeia colunas do Excel para o formato padrão."""
+        mapped_df = pd.DataFrame()
+        
+        for standard_col, possible_cols in self.excel_column_mapping.items():
+            for col in possible_cols:
+                if col in df.columns:
+                    mapped_df[standard_col] = df[col]
+                    break
+            else:
+                self.logger.warning(f"Coluna {standard_col} não encontrada no Excel")
+                mapped_df[standard_col] = None
+        
+        return mapped_df
+
+    def _clean_excel_data(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Limpa e formata os dados do Excel."""
+        try:
+            # Converte GTIN e Código para string e remove zeros à esquerda
+            if 'GTIN' in df.columns:
+                df['GTIN'] = df['GTIN'].astype(str).apply(self._remove_leading_zeros)
+            if 'Codigo' in df.columns:
+                df['Codigo'] = df['Codigo'].astype(str).apply(self._remove_leading_zeros)
+            
+            # Converte valores numéricos
+            numeric_cols = ['Preco', 'Estoque', 'Custo']
+            for col in numeric_cols:
+                if col in df.columns:
+                    df[col] = pd.to_numeric(df[col], errors='coerce')
+                    if col in ['Preco', 'Custo']:
+                        df[col] = df[col].round(2)
+            
+            # Preenche valores vazios
+            if 'Descricao' in df.columns:
+                df['Descricao'] = df['Descricao'].fillna('').astype(str).str.strip()
+            
+            if 'Secao' in df.columns:
+                df['Secao'] = df['Secao'].astype(str).apply(self._remove_leading_zeros)
+            
+            return df
+        except Exception as e:
+            self.logger.error(f"Erro na limpeza dos dados: {str(e)}", exc_info=True)
+            raise
+
+    def process_excel(self, file_path: str) -> Tuple[bool, str]:
+        """Processa arquivo Excel inicial com tratamento robusto."""
+        try:
+            data_path = self.inventory_manager.get_active_inventory_data_path()
+            if not data_path:
+                return False, "Nenhum inventário ativo selecionado"
+
+            # Tenta detectar a planilha correta
+            try:
+                # Primeiro tenta ler todas as planilhas para encontrar a mais adequada
+                excel_file = pd.ExcelFile(file_path)
+                sheet_names = excel_file.sheet_names
+                
+                # Prioriza planilhas com nomes que sugerem dados
+                preferred_sheets = ['ESTOQUE', 'INVENTARIO', 'PRODUTOS', 'ITENS']
+                selected_sheet = None
+                
+                for name in preferred_sheets:
+                    if name in sheet_names:
+                        selected_sheet = name
+                        break
+                
+                # Se não encontrar, usa a primeira planilha
+                if not selected_sheet:
+                    selected_sheet = sheet_names[0]
+                
+                # Lê os dados
+                df = pd.read_excel(file_path, sheet_name=selected_sheet)
+            except Exception as e:
+                self.logger.error(f"Falha ao ler Excel: {str(e)}")
+                return False, "Formato de arquivo Excel inválido"
+
+            # Verifica se tem dados suficientes
+            if len(df) < 1:
+                return False, "Planilha vazia ou sem dados válidos"
+
+            # Mapeia colunas
+            df = self._map_excel_columns(df)
+            
+            # Limpa os dados
+            df = self._clean_excel_data(df)
+            
+            # Verifica colunas obrigatórias
+            required_cols = ['GTIN', 'Codigo', 'Descricao']
+            missing_cols = [col for col in required_cols if col not in df.columns]
+            
+            if missing_cols:
+                return False, f"Colunas obrigatórias ausentes: {', '.join(missing_cols)}"
+
+            # Adiciona flags
+            df = self._add_flag_data(df)
+
+            # Ordena colunas
+            columns_order = ['GTIN', 'Codigo', 'Descricao', 'Preco', 'Estoque', 
+                           'Custo', 'Secao', 'Flag']
+            df = df[[col for col in columns_order if col in df.columns]]
+
+            # Salva os dados
+            output_path = Path(data_path) / "initial_data.parquet"
+            df.to_parquet(output_path, index=False)
+
+            # Dispara combinação em thread separada
+            threading.Thread(
+                target=self._trigger_data_combination,
+                args=(data_path,),
+                daemon=True
+            ).start()
+
+            return True, f"Excel processado com sucesso. {len(df)} itens importados."
+
+        except Exception as e:
+            self.logger.error(f"Erro ao processar Excel: {e}", exc_info=True)
+            return False, f"Erro crítico: {str(e)}"
 
     def process_initial_txt(self, file_path: str) -> Tuple[bool, str]:
         """Processa arquivo TXT inicial com todos os tratamentos."""
