@@ -20,7 +20,6 @@ from utils.validators import validate_inventory_name, validate_store_name
 class MainWindow(tk.Tk):
     def __init__(self):
         super().__init__()
-        self._set_window_icon()
         
         # Configuração inicial
         self.title("Inventário Grupo Mini Preço")
@@ -61,42 +60,6 @@ class MainWindow(tk.Tk):
         except Exception as e:
             self.logger.critical(f"Falha na inicialização dos serviços: {e}", exc_info=True)
             raise
-        
-    def _set_window_icon(self):
-        """Configura o ícone da janela principal com tamanho aprimorado"""
-        try:
-            # Caminho para a pasta assets
-            assets_dir = os.path.join(os.path.dirname(__file__), 'assets')
-            icon_path = os.path.join(assets_dir, 'logo_mini.ico')
-            
-            if os.path.exists(icon_path):
-                # Para Windows (usando .ico com múltiplos tamanhos embutidos)
-                if os.name == 'nt':
-                    try:
-                        # Força o uso do ícone em tamanho maior
-                        self.iconbitmap(default=icon_path)
-                        # Adiciona também como ícone da aplicação
-                        self.tk.call('wm', 'iconphoto', self._w, 
-                                    tk.PhotoImage(file=icon_path))
-                    except Exception as e:
-                        self.logger.warning(f"Erro ao carregar ícone no Windows: {e}")
-                
-                # Para Linux/macOS ou fallback
-                else:
-                    try:
-                        # Carrega a imagem com tamanho específico
-                        img = tk.PhotoImage(file=icon_path)
-                        # Redimensiona se necessário (opcional)
-                        img = img.zoom(2, 2)  # Aumenta 2x
-                        self.tk.call('wm', 'iconphoto', self._w, img)
-                    except:
-                        # Fallback simples se o redimensionamento falhar
-                        self.tk.call('wm', 'iconphoto', self._w, 
-                                    tk.PhotoImage(file=icon_path))
-            else:
-                self.logger.warning("Arquivo de ícone não encontrado")
-        except Exception as e:
-            self.logger.error(f"Erro ao configurar ícone: {e}")
 
     def _setup_ui(self):
         """Configura todos os componentes da interface"""
@@ -588,6 +551,183 @@ class MainWindow(tk.Tk):
             self.logger.error(f"Erro ao encerrar: {e}")
         finally:
             self.destroy()
+            
+    def _create_enhanced_context_menu(self):
+        """Adiciona um menu de contexto avançado à visualização de dados"""
+        self.enhanced_context_menu = tk.Menu(self, tearoff=0)
+        
+        # Itens originais mantidos
+        self.enhanced_context_menu.add_command(label="Copiar", command=self._copy_selected)
+        self.enhanced_context_menu.add_command(label="Exportar Seleção", command=self.export_selection)
+        self.enhanced_context_menu.add_separator()
+        
+        # Novas funcionalidades
+        self.enhanced_context_menu.add_command(label="Validar Dados", command=self._validate_selected_data)
+        self.enhanced_context_menu.add_command(label="Estatísticas", command=self._show_data_stats)
+        self.enhanced_context_menu.add_separator()
+        self.enhanced_context_menu.add_command(label="Atualizar", command=self.refresh_data)
+
+        # Vinculação segura
+        if hasattr(self.inventory_view, 'bind_context_menu'):
+            self.inventory_view.bind_context_menu(self.enhanced_context_menu)
+
+    def _validate_selected_data(self):
+        """Valida os dados selecionados com tratamento robusto"""
+        try:
+            selected_data = self.inventory_view.get_selected_data()
+            if selected_data is None or selected_data.empty:
+                messagebox.showwarning("Aviso", "Nenhum dado selecionado para validação")
+                return
+
+            # Lógica de validação aprimorada
+            validation_errors = []
+            
+            if 'GTIN' in selected_data.columns:
+                invalid_gtin = selected_data[selected_data['GTIN'].astype(str).str.len() != 13]
+                if not invalid_gtin.empty:
+                    validation_errors.append(f"{len(invalid_gtin)} GTINs inválidos")
+
+            if 'QNT_CONTADA' in selected_data.columns:
+                negative_counts = selected_data[selected_data['QNT_CONTADA'] < 0]
+                if not negative_counts.empty:
+                    validation_errors.append(f"{len(negative_counts)} quantidades negativas")
+
+            if validation_errors:
+                messagebox.showwarning("Problemas Encontrados", "\n".join(validation_errors))
+            else:
+                messagebox.showinfo("Validação", "Todos os dados selecionados são válidos!")
+
+        except Exception as e:
+            self.logger.error(f"Erro na validação: {e}", exc_info=True)
+            messagebox.showerror("Erro", f"Falha na validação:\n{str(e)}")
+
+    def _show_data_stats(self):
+        """Exibe estatísticas avançadas dos dados selecionados"""
+        try:
+            selected_data = self.inventory_view.get_selected_data()
+            if selected_data is None or selected_data.empty:
+                messagebox.showwarning("Aviso", "Nenhum dado selecionado para análise")
+                return
+
+            stats_window = tk.Toplevel(self)
+            stats_window.title("Estatísticas dos Dados")
+            stats_window.geometry("400x300")
+
+            # Frame principal
+            main_frame = ttk.Frame(stats_window, padding="10")
+            main_frame.pack(fill=tk.BOTH, expand=True)
+
+            # Cálculo de estatísticas
+            stats_text = tk.Text(main_frame, wrap=tk.WORD)
+            stats_text.pack(fill=tk.BOTH, expand=True)
+
+            stats = []
+            
+            if 'QNT_CONTADA' in selected_data.columns:
+                stats.append(f"Total de itens: {len(selected_data)}")
+                stats.append(f"Média de quantidade: {selected_data['QNT_CONTADA'].mean():.2f}")
+                stats.append(f"Maior quantidade: {selected_data['QNT_CONTADA'].max()}")
+                stats.append(f"Menor quantidade: {selected_data['QNT_CONTADA'].min()}")
+            
+            if 'DIFERENCA' in selected_data.columns:
+                positives = selected_data[selected_data['DIFERENCA'] > 0]
+                negatives = selected_data[selected_data['DIFERENCA'] < 0]
+                stats.append(f"Itens com excesso: {len(positives)}")
+                stats.append(f"Itens faltando: {len(negatives)}")
+                stats.append(f"Maior divergência: {selected_data['DIFERENCA'].max()}")
+                stats.append(f"Menor divergência: {selected_data['DIFERENCA'].min()}")
+
+            stats_text.insert(tk.END, "\n".join(stats))
+            stats_text.config(state=tk.DISABLED)
+
+            # Botão de fechar
+            ttk.Button(
+                main_frame,
+                text="Fechar",
+                command=stats_window.destroy
+            ).pack(pady=10)
+
+        except Exception as e:
+            self.logger.error(f"Erro ao gerar estatísticas: {e}", exc_info=True)
+            messagebox.showerror("Erro", f"Falha ao calcular estatísticas:\n{str(e)}")
+
+    def _create_backup_manager(self):
+        """Adiciona gerenciamento automático de backups"""
+        self.backup_thread = None
+        self.backup_running = False
+        
+        # Configuração padrão
+        self.backup_config = {
+            'auto_backup': True,
+            'backup_interval': 3600,  # 1 hora
+            'max_backups': 5
+        }
+        
+        # Carrega configurações salvas
+        try:
+            saved_config = self.config_manager.get("backup_config")
+            if saved_config:
+                self.backup_config.update(saved_config)
+        except Exception as e:
+            self.logger.warning(f"Erro ao carregar configurações de backup: {e}")
+
+    def _start_auto_backup(self):
+        """Inicia o serviço de backup automático"""
+        if self.backup_running or not self.backup_config['auto_backup']:
+            return
+            
+        self.backup_running = True
+        
+        def backup_loop():
+            while self.backup_running:
+                try:
+                    if self.inventory_manager.active_inventory_path:
+                        backup_path = self.inventory_manager.backup_inventory(
+                            self.inventory_manager.active_inventory_path,
+                            backup_dir="auto_backups"
+                        )
+                        if backup_path:
+                            self.last_backup_time = datetime.now()
+                            self.last_backup_var.set(
+                                f"Último backup: {self.last_backup_time.strftime('%d/%m/%Y %H:%M')}"
+                            )
+                            self._cleanup_old_backups()
+                except Exception as e:
+                    self.logger.error(f"Erro no backup automático: {e}", exc_info=True)
+                
+                # Espera pelo intervalo configurado
+                for _ in range(self.backup_config['backup_interval']):
+                    if not self.backup_running:
+                        break
+                    time.sleep(1)
+        
+        self.backup_thread = threading.Thread(target=backup_loop, daemon=True)
+        self.backup_thread.start()
+
+    def _cleanup_old_backups(self):
+        """Remove backups antigos conforme configuração"""
+        try:
+            backup_dir = Path(self.inventory_manager.data_folder) / "auto_backups"
+            if not backup_dir.exists():
+                return
+                
+            backups = sorted(backup_dir.glob("*.zip"), key=os.path.getmtime, reverse=True)
+            
+            if len(backups) > self.backup_config['max_backups']:
+                for old_backup in backups[self.backup_config['max_backups']:]:
+                    try:
+                        os.remove(old_backup)
+                        self.logger.info(f"Backup antigo removido: {old_backup}")
+                    except Exception as e:
+                        self.logger.warning(f"Falha ao remover backup {old_backup}: {e}")
+                        
+        except Exception as e:
+            self.logger.error(f"Erro na limpeza de backups: {e}", exc_info=True)
+
+    def on_close(self):
+        """Extensão do método original com novos recursos"""
+        # Para os serviços adicionais
+        self.backup_running = False
 
 if __name__ == "__main__":
     app = MainWindow()
