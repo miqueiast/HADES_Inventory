@@ -1,4 +1,4 @@
-# file_processor.py
+#file_processor.py
 import pandas as pd
 import re
 from pathlib import Path
@@ -23,7 +23,9 @@ class FileProcessor:
             'Preco': ['PREÇO', 'PRECO', 'VALOR', 'PV', 'PRICE'],
             'Estoque': ['ESTOQUE', 'QUANTIDADE', 'QTD', 'STOCK'],
             'Custo': ['CUSTO', 'CMV', 'COST'],
-            'Secao': ['SEÇÃO', 'SECAO', 'DEPTO', 'DEPARTAMENTO', 'CATEGORIA']
+            'Secao': ['SEÇÃO', 'SECAO', 'DEPTO', 'DEPARTAMENTO', 'CATEGORIA'],
+            'Endereco': ['ENDEREÇO', 'ENDERECO', 'LOCAL', 'LOCALIZAÇÃO'],
+            'Operador': ['OPERADOR', 'FUNCIONARIO', 'CONTADOR']
         }
 
     @staticmethod
@@ -54,48 +56,43 @@ class FileProcessor:
                 df['Flag'] = 'Sem flag'
                 return df
 
+            # Carrega o arquivo de flags
             flag_df = pd.read_parquet(flag_file)
+            self.logger.debug(f"Colunas disponíveis no flag_df: {flag_df.columns.tolist()}")
+            
+            # Padroniza nomes de colunas (case insensitive)
+            flag_df.columns = flag_df.columns.str.upper()
+            
+            # Tenta identificar as colunas relevantes no arquivo de flags
+            produto_key_col = next((c for c in flag_df.columns if 'PRODUTO_KEY' in c or 'CODIGO' in c or 'SKU' in c), None)
+            flag_col = next((c for c in flag_df.columns if 'FLAG' in c or 'STATUS' in c), None)
 
-            # Identifica colunas de forma flexível
-            col_mapping = {
-                'gtin': ['gtin_principal', 'gtin', 'codigo_barras', 'ean'],
-                'produto': ['produto_key', 'produto', 'codigo', 'sku'],
-                'flag': ['Flag', 'flag', 'status']
-            }
-
-            available_columns = flag_df.columns.tolist()
-            gtin_col = next((c for c in col_mapping['gtin'] if c in available_columns), None)
-            produto_col = next((c for c in col_mapping['produto'] if c in available_columns), None)
-            flag_col = next((c for c in col_mapping['flag'] if c in available_columns), None)
-
-            if not gtin_col or not produto_col or not flag_col:
-                self.logger.error("Estrutura do arquivo de flags inválida")
+            if not flag_col:
+                self.logger.error("Coluna de flag não encontrada no arquivo de flags")
                 df['Flag'] = 'Sem flag'
                 return df
 
-            # Conversão de tipos
-            df['GTIN'] = df['GTIN'].astype(str)
-            df['Codigo'] = df['Codigo'].astype(str)
-            flag_df[gtin_col] = flag_df[gtin_col].astype(str)
-            flag_df[produto_col] = flag_df[produto_col].astype(str)
-
-            # Merge dos dados
+            # Converte tipos de dados para garantir compatibilidade
+            df['Codigo'] = df['Codigo'].astype(str).str.strip()
+            flag_df[produto_key_col] = flag_df[produto_key_col].astype(str).str.strip()
+            
+            # Faz merge apenas pelo código do produto (produto_key)
             merged = pd.merge(
                 df,
-                flag_df[[gtin_col, produto_col, flag_col]],
+                flag_df[[produto_key_col, flag_col]].drop_duplicates(subset=[produto_key_col]),
                 how='left',
-                left_on=['GTIN', 'Codigo'],
-                right_on=[gtin_col, produto_col]
+                left_on='Codigo',
+                right_on=produto_key_col
             )
-
-            # Pós-merge
-            merged = merged.drop([gtin_col, produto_col], axis=1, errors='ignore')
-            merged['Flag'] = merged[flag_col].fillna('Sem flag')
-
-            if flag_col != 'Flag':
-                merged = merged.drop(flag_col, axis=1)
-
-            return merged
+            
+            # Atualiza a coluna Flag com os valores encontrados
+            df['Flag'] = merged[flag_col].fillna('Sem flag')
+            
+            # Loga quantos produtos receberam flag
+            flagged_count = (df['Flag'] != 'Sem flag').sum()
+            self.logger.info(f"Flags aplicadas em {flagged_count} produtos")
+            
+            return df
 
         except Exception as e:
             self.logger.error(f"Erro ao adicionar flags: {str(e)}", exc_info=True)
@@ -112,6 +109,9 @@ class FileProcessor:
                     mapped_df[standard_col] = df[col]
                     break
             else:
+                if standard_col in ['Endereco', 'Operador']:
+                    # Essas colunas são opcionais
+                    continue
                 self.logger.warning(f"Coluna {standard_col} não encontrada no Excel")
                 mapped_df[standard_col] = None
         
@@ -133,6 +133,25 @@ class FileProcessor:
                     df[col] = pd.to_numeric(df[col], errors='coerce')
                     if col in ['Preco', 'Custo']:
                         df[col] = df[col].round(2)
+            
+            # Tratamento especial para Endereco e Operador (concatena múltiplos valores)
+            if 'Endereco' in df.columns:
+                df['Endereco'] = df['Endereco'].astype(str).str.strip()
+                # Agrupa por produto e concatena endereços únicos
+                if 'Codigo' in df.columns:
+                    enderecos = df.groupby('Codigo')['Endereco'].agg(
+                        lambda x: ' / '.join(sorted(set(x.astype(str).str.strip()))))
+                    df = df.drop('Endereco', axis=1).merge(
+                        enderecos, on='Codigo', how='left')
+            
+            if 'Operador' in df.columns:
+                df['Operador'] = df['Operador'].astype(str).str.strip()
+                # Agrupa por produto e concatena operadores únicos
+                if 'Codigo' in df.columns:
+                    operadores = df.groupby('Codigo')['Operador'].agg(
+                        lambda x: ' / '.join(sorted(set(x.astype(str).str.strip()))))
+                    df = df.drop('Operador', axis=1).merge(
+                        operadores, on='Codigo', how='left')
             
             # Preenche valores vazios
             if 'Descricao' in df.columns:
@@ -198,9 +217,9 @@ class FileProcessor:
             # Adiciona flags
             df = self._add_flag_data(df)
 
-            # Ordena colunas
+            # Ordena colunas (incluindo as novas colunas opcionais)
             columns_order = ['GTIN', 'Codigo', 'Descricao', 'Preco', 'Estoque', 
-                           'Custo', 'Secao', 'Flag']
+                           'Custo', 'Secao', 'Flag', 'Endereco', 'Operador']
             df = df[[col for col in columns_order if col in df.columns]]
 
             # Salva os dados

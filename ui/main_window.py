@@ -1,4 +1,3 @@
-# main_window.py
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 from pathlib import Path
@@ -27,13 +26,22 @@ class MainWindow(tk.Tk):
         self.title("Inventário Grupo Mini Preço")
         self.geometry("1000x700")
         self.minsize(800, 600)
-        self.protocol("WM_DELETE_WINDOW", self._on_close)  # Alterado para _on_close
-        
+        self.protocol("WM_DELETE_WINDOW", self._on_close)
+
         # Variáveis de estado
         self.current_data = None
         self.processing_lock = threading.Lock()
         self.watcher_active = True
         self.last_backup_time = None
+        
+        # Configuração de backup
+        self.backup_running = False
+        self.backup_thread = None
+        self.backup_config = {
+            'auto_backup': True,
+            'backup_interval': 3600,
+            'max_backups': 5
+        }
         
         # Configuração de logging
         self.logger = setup_logger(
@@ -52,7 +60,6 @@ class MainWindow(tk.Tk):
         # Carrega estado inicial
         self._load_initial_state()
         self._create_enhanced_context_menu()
-        self._create_backup_manager()
 
     def _initialize_services(self):
         """Inicializa todos os serviços e gerenciadores"""
@@ -355,6 +362,7 @@ class MainWindow(tk.Tk):
                 if not combined_file.exists():
                     return None, "Arquivo combinado não encontrado"
                     
+                # Carrega apenas as colunas necessárias para melhor performance
                 required_cols = [
                     'GTIN', 'Codigo', 'Descricao', 'Preco', 'Custo',
                     'Estoque', 'QNT_CONTADA', 'COD_BARRAS', 'Flag'
@@ -363,9 +371,11 @@ class MainWindow(tk.Tk):
                 try:
                     df = pd.read_parquet(combined_file, columns=required_cols)
                 except Exception:
+                    # Fallback: carrega tudo e filtra as colunas
                     df = pd.read_parquet(combined_file)
                     df = df[required_cols] if all(col in df.columns for col in required_cols) else pd.DataFrame(columns=required_cols)
                 
+                # Converte colunas numéricas
                 numeric_cols = ['Estoque', 'QNT_CONTADA']
                 for col in numeric_cols:
                     if col in df.columns:
@@ -394,7 +404,7 @@ class MainWindow(tk.Tk):
         
         # Executa o carregamento em thread separada
         threading.Thread(
-            target=lambda: self.after(0, on_data_loaded),
+            target=on_data_loaded,
             daemon=True
         ).start()
 
@@ -420,29 +430,20 @@ class MainWindow(tk.Tk):
                 self.window = window
             
             def __enter__(self):
-                if hasattr(self.window, 'set_cursor'):
-                    self.window.set_cursor("watch")
-                if hasattr(self.window, 'update_status'):
-                    self.window.update_status("Processando...")
+                self.window.set_cursor("watch")
+                self.window.update_status("Processando...")
                 self.window.update_idletasks()
                 return self
             
             def __exit__(self, exc_type, exc_val, exc_tb):
-                if hasattr(self.window, 'set_cursor'):
-                    self.window.set_cursor("")
-                if hasattr(self.window, 'update_status'):
-                    if exc_type is not None:
-                        self.window.update_status("Erro durante o processamento")
-                    else:
-                        self.window.update_status("Pronto")
+                self.window.set_cursor("")
+                if exc_type is not None:
+                    self.window.update_status("Erro durante o processamento")
+                else:
+                    self.window.update_status("Pronto")
                 self.window.update_idletasks()
         
         return OperationContext(self)
-
-    def _is_main_thread(self):
-        """Verifica se estamos na thread principal"""
-        import threading
-        return isinstance(threading.current_thread(), threading._MainThread)
 
     def manual_backup(self):
         """Executa um backup manual do inventário ativo"""
@@ -570,8 +571,8 @@ class MainWindow(tk.Tk):
     def _create_enhanced_context_menu(self):
         """Adiciona um menu de contexto avançado à visualização de dados"""
         self.enhanced_context_menu = tk.Menu(self, tearoff=0)
-        self.enhanced_context_menu.add_command(label="Copiar", command=self._copy_selected)
-        self.enhanced_context_menu.add_command(label="Exportar Seleção", command=self.export_selection)
+        #self.enhanced_context_menu.add_command(label="Copiar", command=self._copy_selected)
+        #self.enhanced_context_menu.add_command(label="Exportar Seleção", command=self.export_selection)
         self.enhanced_context_menu.add_separator()
         self.enhanced_context_menu.add_command(label="Validar Dados", command=self._validate_selected_data)
         self.enhanced_context_menu.add_command(label="Estatísticas", command=self._show_data_stats)
@@ -657,23 +658,6 @@ class MainWindow(tk.Tk):
             self.logger.error(f"Erro ao gerar estatísticas: {e}", exc_info=True)
             messagebox.showerror("Erro", f"Falha ao calcular estatísticas:\n{str(e)}")
 
-    def _create_backup_manager(self):
-        """Adiciona gerenciamento automático de backups"""
-        self.backup_thread = None
-        self.backup_running = False
-        self.backup_config = {
-            'auto_backup': True,
-            'backup_interval': 3600,
-            'max_backups': 5
-        }
-        
-        try:
-            saved_config = self.config_manager.get("backup_config")
-            if saved_config:
-                self.backup_config.update(saved_config)
-        except Exception as e:
-            self.logger.warning(f"Erro ao carregar configurações de backup: {e}")
-
     def _start_auto_backup(self):
         """Inicia o serviço de backup automático"""
         if self.backup_running or not self.backup_config['auto_backup']:
@@ -691,9 +675,9 @@ class MainWindow(tk.Tk):
                         )
                         if backup_path:
                             self.last_backup_time = datetime.now()
-                            self.last_backup_var.set(
+                            self.after(0, lambda: self.last_backup_var.set(
                                 f"Último backup: {self.last_backup_time.strftime('%d/%m/%Y %H:%M')}"
-                            )
+                            ))
                             self._cleanup_old_backups()
                 except Exception as e:
                     self.logger.error(f"Erro no backup automático: {e}", exc_info=True)
@@ -757,10 +741,8 @@ class MainWindow(tk.Tk):
                 self.data_combiner.stop_watching()
                 message = "Monitoramento automático desativado"
             
-            if hasattr(self, '_update_watcher_button'):
-                self._update_watcher_button()
-            if hasattr(self, 'update_status'):
-                self.update_status(message)
+            self._update_watcher_button()
+            self.update_status(message)
             messagebox.showinfo("Monitoramento", message)
         except Exception as e:
             self.logger.error(f"Erro ao alternar monitoramento: {e}")
