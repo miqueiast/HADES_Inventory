@@ -11,13 +11,13 @@ from datetime import datetime
 class DataCombiner:
     def __init__(self, data_folder: str):
         """
-        Gerenciador para combinação de dados de inventário com monitoramento automático.
+        Gerenciador para combinação de dados de inventário.
         
         Args:
-            data_folder (str): Caminho para a pasta base do inventário (contendo a subpasta 'dados')
+            data_folder: Caminho COMPLETO para a pasta 'dados' do inventário
+                        (ex: 'data/nome_inventario/dados')
         """
-        self.base_folder = Path(data_folder)
-        self.data_folder = self.base_folder / "dados"
+        self.data_folder = Path(data_folder)
         self.watching = False
         self.watcher_thread = None
         self.combined_file = "combined_data.parquet"
@@ -28,13 +28,11 @@ class DataCombiner:
         self.last_processed = None
         
         # Configurações
-        self.min_interval = 5  # segundos entre verificações
-        self.max_retries = 3   # tentativas de leitura de arquivo
-        self.retry_delay = 1   # segundos entre tentativas
-                
-        # Garante a estrutura de pastas
-        self._ensure_data_folder()
-        # Cria a pasta se não existir
+        self.min_interval = 5
+        self.max_retries = 3
+        self.retry_delay = 1
+        
+        # Garante estrutura
         self.data_folder.mkdir(parents=True, exist_ok=True)
         
         self.logger.info(f"DataCombiner configurado para: {self.data_folder}")

@@ -126,12 +126,12 @@ class FileProcessor:
     def process_initial_txt(self, file_path: str) -> Tuple[bool, str]:
         """Processa o arquivo TXT inicial."""
         try:
-            inventory_path = self.inventory_manager.active_inventory_path
-            if not inventory_path:
+            ## CORREÇÃO: Usar get_active_inventory_data_path() que já inclui /dados
+            data_path = Path(self.inventory_manager.get_active_inventory_data_path())
+            if not data_path:
                 return False, "Nenhum inventário ativo selecionado."
 
-            # Garante que a pasta dados existe dentro da pasta do inventário
-            data_path = Path(inventory_path) / "dados"
+            # Garante que a pasta existe
             data_path.mkdir(parents=True, exist_ok=True)
 
             # Detecta a codificação do arquivo TXT
@@ -149,15 +149,15 @@ class FileProcessor:
             if not lines:
                 return False, "Não foi possível ler o arquivo."
 
-            # Expressão regular para parsing das linhas no arquivo TXT
+            # Expressão regular para parsing
             pattern = re.compile(
-                r'^(?P<gtin>\d{13})\s+'         # GTIN (13 dígitos)
-                r'(?P<codigo>\d{9})\s+'         # Codigo (9 dígitos)
-                r'(?P<descricao>.+?)\s+'        # Descricao (texto variável)
-                r'(?P<preco>\d{8})\s+'          # Preco (8 dígitos)
-                r'(?P<estoque>\d{8})\s+'        # Estoque (8 dígitos)
-                r'(?P<custo>\d{8})\s+'          # Custo (8 dígitos)
-                r'(?P<secao>\d{5})$'            # Secao (5 dígitos)
+                r'^(?P<gtin>\d{13})\s+'
+                r'(?P<codigo>\d{9})\s+'
+                r'(?P<descricao>.+?)\s+'
+                r'(?P<preco>\d{8})\s+'
+                r'(?P<estoque>\d{8})\s+'
+                r'(?P<custo>\d{8})\s+'
+                r'(?P<secao>\d{5})$'
             )
 
             data = []
@@ -176,9 +176,9 @@ class FileProcessor:
                         'GTIN': self._remove_leading_zeros(match.group('gtin')),
                         'Codigo': self._remove_leading_zeros(match.group('codigo')),
                         'Descricao': match.group('descricao').strip(),
-                        'Preco': int(match.group('preco')) / 100,  # Converte para float
-                        'Estoque': int(match.group('estoque')),    # Estoque como inteiro
-                        'Custo': int(match.group('custo')) / 100,  # Converte para float
+                        'Preco': int(match.group('preco')) / 100,
+                        'Estoque': int(match.group('estoque')),
+                        'Custo': int(match.group('custo')) / 100,
                         'Secao': self._remove_leading_zeros(match.group('secao')),
                     })
                 except Exception as e:
@@ -187,18 +187,13 @@ class FileProcessor:
             if not data:
                 return False, "Nenhum dado válido encontrado."
 
-            # Cria um DataFrame com os dados do TXT
             df = pd.DataFrame(data)
-
-            # Adiciona a coluna Flag com base no arquivo prod_flag.parquet
             df = self._add_flag_data(df)
 
-            # Define a ordem das colunas finais
             columns_order = ['GTIN', 'Codigo', 'Descricao', 'Preco', 'Estoque',
-                             'Custo', 'Secao', 'Flag']
+                            'Custo', 'Secao', 'Flag']
             df = df[columns_order]
 
-            # Salva no local CORRETO: data/[inventario]/dados/initial_data.parquet
             output_path = data_path / "initial_data.parquet"
             df.to_parquet(output_path, index=False)
 
@@ -289,22 +284,23 @@ class FileProcessor:
             raise
 
     def process_excel(self, file_path: str) -> Tuple[bool, str]:
-        """Processa arquivo Excel específico para contagem e salva em dados123.parquet"""
+        """Processa arquivo Excel específico para contagem."""
         try:
-            data_path = self.inventory_manager.get_active_inventory_data_path()
+            # Usa o caminho completo que já inclui /dados
+            data_path = Path(self.inventory_manager.get_active_inventory_data_path())
             if not data_path:
                 return False, "Nenhum inventário ativo selecionado"
 
+            data_path.mkdir(exist_ok=True)
+
             # Carrega o arquivo Excel
             df = pd.read_excel(file_path, sheet_name=0)
-            
-            # Remove linhas totalmente vazias
             df.dropna(how='all', inplace=True)
             
             if len(df) < 1:
                 return False, "Planilha vazia ou sem dados válidos"
 
-            # Renomeia colunas para padrão interno (case insensitive)
+            # Renomeia colunas
             column_mapping = {
                 'cód. barras': 'COD_BARRAS',
                 'cod. barras': 'COD_BARRAS',
@@ -313,11 +309,9 @@ class FileProcessor:
                 'quantidade contada': 'QNT_CONTADA',
                 'operador': 'OPERADOR',
                 'endereço': 'ENDERECO',
-                'endereco': 'ENDERECO',
-                'loja key': 'LOJA_KEY'
+                'endereco': 'ENDERECO'
             }
             
-            # Padroniza nomes das colunas
             df.columns = [column_mapping.get(col.lower().strip(), col) for col in df.columns]
             
             # Verifica colunas obrigatórias
@@ -326,25 +320,22 @@ class FileProcessor:
                 missing = required_columns - set(df.columns)
                 return False, f"Colunas obrigatórias faltando: {missing}"
 
-            # Converte código de barras para string e remove notação científica
+            # Processa dados
             df['COD_BARRAS'] = (
                 df['COD_BARRAS']
                 .astype(str)
-                .str.replace(r'\.0$', '', regex=True)  # Remove .0 no final
-                .str.replace(r'\D', '', regex=True)    # Remove não-dígitos
+                .str.replace(r'\.0$', '', regex=True)
+                .str.replace(r'\D', '', regex=True)
                 .apply(self._remove_leading_zeros)
             )
 
-            # Converte quantidade para numérico
             df['QNT_CONTADA'] = pd.to_numeric(df['QNT_CONTADA'], errors='coerce').fillna(0)
 
-            # Processa campos de texto
             text_cols = ['OPERADOR', 'ENDERECO']
             for col in text_cols:
                 if col in df.columns:
                     df[col] = df[col].astype(str).str.strip()
 
-            # Agrupa os dados
             agg_rules = {'QNT_CONTADA': 'sum'}
             for col in text_cols:
                 if col in df.columns:
@@ -352,30 +343,21 @@ class FileProcessor:
             
             grouped_df = df.groupby('COD_BARRAS', as_index=False).agg(agg_rules)
 
-            # Caminho do arquivo de destino
-            output_path = Path(data_path) / "dados123.parquet"
+            output_path = data_path / "dados123.parquet"
 
-            # Se o arquivo já existir, faz merge com os dados existentes
             if output_path.exists():
                 existing_df = pd.read_parquet(output_path)
-                
-                # Concatena os dataframes
                 combined_df = pd.concat([existing_df, grouped_df])
-                
-                # Reagrupa para consolidar os dados
                 final_df = combined_df.groupby('COD_BARRAS', as_index=False).agg(agg_rules)
             else:
                 final_df = grouped_df
 
-            # Seleciona apenas as colunas desejadas na ordem correta
             final_cols = ['COD_BARRAS', 'QNT_CONTADA']
             for col in ['OPERADOR', 'ENDERECO']:
                 if col in final_df.columns:
                     final_cols.append(col)
             
             final_df = final_df[final_cols]
-
-            # Salva o arquivo
             final_df.to_parquet(output_path, index=False)
 
             return True, (f"Dados processados com sucesso. "
