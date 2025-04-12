@@ -13,6 +13,19 @@ class FileProcessor:
     def __init__(self, inventory_manager):
         self.inventory_manager = inventory_manager
         self.logger = logging.getLogger(__name__)
+        
+        # Mapeamento de colunas do Excel
+        self.excel_column_mapping = {
+            'GTIN': ['gtin', 'ean', 'código de barras', 'barcode'],
+            'Codigo': ['codigo', 'código', 'id', 'produto', 'sku'],
+            'Descricao': ['descricao', 'descrição', 'nome', 'produto'],
+            'Preco': ['preco', 'preço', 'valor', 'preço de venda'],
+            'Estoque': ['estoque', 'quantidade', 'qtd', 'saldo'],
+            'Custo': ['custo', 'custo unitário', 'preço de custo'],
+            'Secao': ['secao', 'seção', 'departamento', 'categoria'],
+            'Endereco': ['endereco', 'endereço', 'local', 'posição'],
+            'Operador': ['operador', 'funcionário', 'responsável']
+        }
 
     @staticmethod
     def detect_encoding(file_path: str) -> Optional[str]:
@@ -34,7 +47,7 @@ class FileProcessor:
 
     def _add_flag_data(self, df: pd.DataFrame) -> pd.DataFrame:
         """
-        Faz o join do DataFrame processado com o arquivo `prod_flag.parquet` usando apenas o código do produto.
+        Faz o join do DataFrame processado com o arquivo `prod_flag.parquet`.
         Adiciona a coluna `Flag` com base no arquivo `prod_flag.parquet`.
         """
         try:
@@ -95,6 +108,20 @@ class FileProcessor:
             self.logger.error(f"Erro ao adicionar flags: {e}", exc_info=True)
             df['Flag'] = ''
             return df
+
+    def _trigger_data_combination(self, data_path: str) -> bool:
+        """Dispara a combinação de dados com tratamento de erros."""
+        try:
+            combiner = DataCombiner(data_path)
+            success = combiner.combine_data()
+
+            if success and hasattr(self.inventory_manager, 'notify_ui'):
+                self.inventory_manager.notify_ui("data_updated")
+
+            return success
+        except Exception as e:
+            self.logger.error(f"Falha na combinação automática: {e}", exc_info=True)
+            return False
 
     def process_initial_txt(self, file_path: str) -> Tuple[bool, str]:
         """Processa o arquivo TXT inicial."""
@@ -185,6 +212,7 @@ class FileProcessor:
             self.logger.error(f"Erro ao processar TXT: {e}", exc_info=True)
             return False, f"Erro crítico: {str(e)}"
 
+    
     def _trigger_data_combination(self, data_path: str) -> bool:
         """Dispara a combinação de dados com tratamento de erros."""
         try:
@@ -200,65 +228,65 @@ class FileProcessor:
             return False
         
     def _map_excel_columns(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Mapeia colunas do Excel para o formato padrão."""
+        """Mapeia as colunas EXATAS do seu Excel para o formato interno"""
         mapped_df = pd.DataFrame()
         
-        for standard_col, possible_cols in self.excel_column_mapping.items():
-            for col in possible_cols:
-                if col in df.columns:
-                    mapped_df[standard_col] = df[col]
-                    break
-            else:
-                if standard_col in ['Endereco', 'Operador']:
-                    # Essas colunas são opcionais
-                    continue
-                self.logger.warning(f"Coluna {standard_col} não encontrada no Excel")
-                mapped_df[standard_col] = None
+        # Mapeamento ESPECÍFICO para seus arquivos
+        column_mapping = {
+            'GTIN': ['CÓD. BARRAS', 'COD. BARRAS', 'CODIGO BARRAS'],
+            'Operador': ['OPERADOR'],
+            'Endereco': ['ENDEREÇO', 'ENDERECO'],
+            'Estoque': ['QNT. CONTADA', 'QUANTIDADE CONTADA', 'QNT CONTADA']
+        }
         
-        return mapped_df
+        # Verifica cada coluna necessária
+        for standard_col, possible_names in column_mapping.items():
+            found = False
+            for possible_name in possible_names:
+                if possible_name in df.columns:
+                    mapped_df[standard_col] = df[possible_name]
+                    self.logger.debug(f"Mapeada coluna '{possible_name}' -> '{standard_col}'")
+                    found = True
+                    break
+            
+            if not found and standard_col in ['Endereco', 'Operador']:
+                mapped_df[standard_col] = None  # Colunas opcionais
+                self.logger.debug(f"Coluna opcional '{standard_col}' não encontrada")
+            elif not found:
+                self.logger.warning(f"Coluna obrigatória '{standard_col}' não encontrada. Procurado por: {possible_names}")
+                return None
     
+        return mapped_df
+
     def _clean_excel_data(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Limpa e formata os dados do Excel."""
+        """Processa os dados do SEU formato específico"""
         try:
-            # Converte GTIN e Código para string e remove zeros à esquerda
+            # Converte GTIN (que veio de CÓD. BARRAS)
             if 'GTIN' in df.columns:
-                df['GTIN'] = df['GTIN'].astype(str).apply(self._remove_leading_zeros)
-            if 'Codigo' in df.columns:
-                df['Codigo'] = df['Codigo'].astype(str).apply(self._remove_leading_zeros)
+                df['GTIN'] = (
+                    df['GTIN']
+                    .astype(str)
+                    .str.replace(r'\D', '', regex=True)  # Remove não-dígitos
+                    .apply(self._remove_leading_zeros)
+                )
             
-            # Converte valores numéricos
-            numeric_cols = ['Preco', 'Estoque', 'Custo']
-            for col in numeric_cols:
+            # Converte estoque para numérico
+            if 'Estoque' in df.columns:
+                df['Estoque'] = pd.to_numeric(df['Estoque'], errors='coerce').fillna(0)
+            
+            # Processa texto das colunas opcionais
+            for col in ['Operador', 'Endereco']:
                 if col in df.columns:
-                    df[col] = pd.to_numeric(df[col], errors='coerce')
-                    if col in ['Preco', 'Custo']:
-                        df[col] = df[col].round(2)
+                    df[col] = df[col].astype(str).str.strip()
             
-            # Tratamento especial para Endereco e Operador (concatena múltiplos valores)
-            if 'Endereco' in df.columns:
-                df['Endereco'] = df['Endereco'].astype(str).str.strip()
-                # Agrupa por produto e concatena endereços únicos
-                if 'Codigo' in df.columns:
-                    enderecos = df.groupby('Codigo')['Endereco'].agg(
-                        lambda x: ' / '.join(sorted(set(x.astype(str).str.strip()))))
-                    df = df.drop('Endereco', axis=1).merge(
-                        enderecos, on='Codigo', how='left')
-            
-            if 'Operador' in df.columns:
-                df['Operador'] = df['Operador'].astype(str).str.strip()
-                # Agrupa por produto e concatena operadores únicos
-                if 'Codigo' in df.columns:
-                    operadores = df.groupby('Codigo')['Operador'].agg(
-                        lambda x: ' / '.join(sorted(set(x.astype(str).str.strip()))))
-                    df = df.drop('Operador', axis=1).merge(
-                        operadores, on='Codigo', how='left')
-            
-            # Preenche valores vazios
-            if 'Descricao' in df.columns:
-                df['Descricao'] = df['Descricao'].fillna('').astype(str).str.strip()
-            
-            if 'Secao' in df.columns:
-                df['Secao'] = df['Secao'].astype(str).apply(self._remove_leading_zeros)
+            # Agrupa por GTIN (CÓD. BARRAS)
+            if 'GTIN' in df.columns:
+                agg_rules = {'Estoque': 'sum'}
+                for col in ['Operador', 'Endereco']:
+                    if col in df.columns:
+                        agg_rules[col] = lambda x: ' / '.join(sorted(set(x.astype(str))))
+                
+                return df.groupby('GTIN', as_index=False).agg(agg_rules)
             
             return df
         except Exception as e:
@@ -266,75 +294,48 @@ class FileProcessor:
             raise
 
     def process_excel(self, file_path: str) -> Tuple[bool, str]:
-        """Processa arquivo Excel inicial com tratamento robusto."""
+        """Processa arquivo Excel no formato específico"""
         try:
             data_path = self.inventory_manager.get_active_inventory_data_path()
             if not data_path:
                 return False, "Nenhum inventário ativo selecionado"
 
-            # Tenta detectar a planilha correta
-            try:
-                # Primeiro tenta ler todas as planilhas para encontrar a mais adequada
-                excel_file = pd.ExcelFile(file_path)
-                sheet_names = excel_file.sheet_names
-                
-                # Prioriza planilhas com nomes que sugerem dados
-                preferred_sheets = ['ESTOQUE', 'INVENTARIO', 'PRODUTOS', 'ITENS']
-                selected_sheet = None
-                
-                for name in preferred_sheets:
-                    if name in sheet_names:
-                        selected_sheet = name
-                        break
-                
-                # Se não encontrar, usa a primeira planilha
-                if not selected_sheet:
-                    selected_sheet = sheet_names[0]
-                
-                # Lê os dados
-                df = pd.read_excel(file_path, sheet_name=selected_sheet)
-            except Exception as e:
-                self.logger.error(f"Falha ao ler Excel: {str(e)}")
-                return False, "Formato de arquivo Excel inválido"
-
-            # Verifica se tem dados suficientes
+            # Carrega a primeira planilha (assumindo que só tem uma)
+            df = pd.read_excel(file_path, sheet_name=0)
+            
+            # Remove linhas totalmente vazias
+            df.dropna(how='all', inplace=True)
+            
             if len(df) < 1:
                 return False, "Planilha vazia ou sem dados válidos"
 
             # Mapeia colunas
-            df = self._map_excel_columns(df)
+            mapped_df = self._map_excel_columns(df)
+            if mapped_df is None:
+                return False, "Colunas obrigatórias não encontradas no arquivo Excel"
             
-            # Limpa os dados
-            df = self._clean_excel_data(df)
+            # Limpeza e agrupamento dos dados
+            cleaned_df = self._clean_excel_data(mapped_df)
             
-            # Verifica colunas obrigatórias
-            required_cols = ['GTIN', 'Codigo', 'Descricao']
-            missing_cols = [col for col in required_cols if col not in df.columns]
+            # Adiciona colunas padrão que podem estar faltando
+            for col in ['Codigo', 'Descricao', 'Preco', 'Custo', 'Secao']:
+                if col not in cleaned_df.columns:
+                    cleaned_df[col] = None
             
-            if missing_cols:
-                return False, f"Colunas obrigatórias ausentes: {', '.join(missing_cols)}"
-
             # Adiciona flags
-            df = self._add_flag_data(df)
-
-            # Ordena colunas (incluindo as novas colunas opcionais)
-            columns_order = ['GTIN', 'Codigo', 'Descricao', 'Preco', 'Estoque', 
-                           'Custo', 'Secao', 'Flag', 'Endereco', 'Operador']
-            df = df[[col for col in columns_order if col in df.columns]]
-
+            cleaned_df = self._add_flag_data(cleaned_df)
+            
+            # Ordena colunas
+            final_cols = ['GTIN', 'Codigo', 'Descricao', 'Preco', 'Estoque', 
+                        'Custo', 'Secao', 'Flag', 'Endereco', 'Operador']
+            cleaned_df = cleaned_df[[col for col in final_cols if col in cleaned_df.columns]]
+            
             # Salva os dados
             output_path = Path(data_path) / "initial_data.parquet"
-            df.to_parquet(output_path, index=False)
-
-            # Dispara combinação em thread separada
-            threading.Thread(
-                target=self._trigger_data_combination,
-                args=(data_path,),
-                daemon=True
-            ).start()
-
-            return True, f"Excel processado com sucesso. {len(df)} itens importados."
+            cleaned_df.to_parquet(output_path, index=False)
+            
+            return True, f"Excel processado com sucesso. {len(cleaned_df)} itens agrupados."
 
         except Exception as e:
             self.logger.error(f"Erro ao processar Excel: {e}", exc_info=True)
-            return False, f"Erro crítico: {str(e)}"
+            return False, f"Erro ao processar Excel: {str(e)}"
