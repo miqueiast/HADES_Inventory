@@ -368,3 +368,56 @@ RuntimeError: main thread is not in main loop
 2025-04-08 14:02:19,846 - hades - INFO - Processando...
 2025-04-08 14:02:20,988 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 31439 | Total: 887614
 2025-04-08 14:02:20,989 - hades - INFO - Pronto
+2025-04-12 15:21:59,395 - hades - INFO - Processando...
+2025-04-12 15:21:59,520 - hades - INFO - Processando...
+2025-04-12 15:21:59,550 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
+2025-04-12 15:21:59,552 - hades - INFO - Pronto
+2025-04-12 15:22:00,524 - hades - INFO - Pronto
+2025-04-12 15:22:13,869 - hades - INFO - Processando...
+2025-04-12 15:22:13,901 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
+2025-04-12 15:22:13,901 - hades - INFO - Pronto
+2025-04-12 15:23:01,522 - hades - INFO - Processando...
+2025-04-12 15:23:03,031 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 31439 | Total: 887614
+2025-04-12 15:23:03,031 - hades - INFO - Pronto
+2025-04-12 15:26:56,947 - hades - INFO - Processando...
+2025-04-12 15:26:57,064 - hades - INFO - Processando...
+2025-04-12 15:26:57,101 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
+2025-04-12 15:26:57,103 - hades - INFO - Pronto
+2025-04-12 15:26:58,199 - hades - INFO - Pronto
+2025-04-12 15:27:09,240 - hades - INFO - Processando...
+2025-04-12 15:27:09,502 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
+2025-04-12 15:27:09,503 - hades - INFO - Pronto
+2025-04-12 15:27:26,420 - hades - INFO - Processando...
+2025-04-12 15:27:27,589 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 31439 | Total: 887614
+2025-04-12 15:27:27,590 - hades - INFO - Pronto
+2025-04-12 15:35:29,451 - hades - ERROR - Erro na operação: 'FileProcessor' object has no attribute 'process_excel'
+Traceback (most recent call last):
+  File "C:\Users\miqueias.silva\Desktop\HADES_Inventory\ui\main_window.py", line 508, in execute
+    success, result = operation()
+                      ^^^^^^^^^^^
+  File "C:\Users\miqueias.silva\Desktop\HADES_Inventory\ui\main_window.py", line 341, in <lambda>
+    operation=lambda: self.file_processor.process_excel(file_path),
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'FileProcessor' object has no attribute 'process_excel'
+2025-04-12 16:25:14,249 - hades - INFO - Processando...
+2025-04-12 16:25:14,377 - hades - INFO - Processando...
+2025-04-12 16:25:14,412 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
+2025-04-12 16:25:14,412 - hades - INFO - Pronto
+2025-04-12 16:25:15,418 - hades - INFO - Pronto
+2025-04-12 16:25:28,748 - hades - INFO - Processando...
+2025-04-12 16:25:28,778 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
+2025-04-12 16:25:28,780 - hades - INFO - Pronto
+2025-04-12 16:27:09,778 - hades - INFO - Processando...
+2025-04-12 16:27:10,997 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 31439 | Total: 887614
+2025-04-12 16:27:10,997 - hades - INFO - Pronto
+2025-04-12 17:27:34,588 - hades - INFO - Processando...
+2025-04-12 17:27:35,576 - hades - INFO - Processando...
+2025-04-12 17:27:35,622 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
+2025-04-12 17:27:35,622 - hades - INFO - Pronto
+2025-04-12 17:27:36,815 - hades - INFO - Pronto
+2025-04-12 17:27:48,327 - hades - INFO - Processando...
+2025-04-12 17:27:48,367 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
+2025-04-12 17:27:48,369 - hades - INFO - Pronto
+2025-04-12 17:27:55,321 - hades - INFO - Processando...
+2025-04-12 17:27:56,472 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 31439 | Total: 887614
+2025-04-12 17:27:56,472 - hades - INFO - Pronto
