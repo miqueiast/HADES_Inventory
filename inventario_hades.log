@@ -1,423 +1,111 @@
-2025-03-28 15:59:25,472 - hades - INFO - Nenhum arquivo de dados combinados encontrado
-2025-03-28 16:07:02,073 - hades - INFO - Nenhum arquivo de dados combinados encontrado
-2025-03-28 16:07:08,708 - hades - ERROR - Erro ao carregar dados combinados: The truth value of a DataFrame is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
-Traceback (most recent call last):
-  File "C:\Users\miqueias.silva\Documents\HADES\ui\main_window.py", line 440, in refresh_data
-    self.inventory_view.display_data(df)
-  File "C:\Users\miqueias.silva\Documents\HADES\ui\inventory_view.py", line 62, in display_data
-    self._apply_styling()
-  File "C:\Users\miqueias.silva\Documents\HADES\ui\inventory_view.py", line 69, in _apply_styling
-    if not self.table or not self.current_data:
-                             ^^^^^^^^^^^^^^^^^
-  File "c:\Users\miqueias.silva\AppData\Local\Programs\Python\Python312\Lib\site-packages\pandas\core\generic.py", line 1577, in __nonzero__
-    raise ValueError(
-ValueError: The truth value of a DataFrame is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
-2025-03-28 16:17:19,426 - hades - ERROR - Erro ao carregar dados combinados: The truth value of a DataFrame is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
-Traceback (most recent call last):
-  File "C:\Users\miqueias.silva\Documents\HADES\ui\main_window.py", line 440, in refresh_data
-    self.inventory_view.display_data(df)
-  File "C:\Users\miqueias.silva\Documents\HADES\ui\inventory_view.py", line 62, in display_data
-    )
-  File "C:\Users\miqueias.silva\Documents\HADES\ui\inventory_view.py", line 69, in _apply_styling
-    self.status_var.set(f"Exibindo {len(data)} registros | {len(data.columns)} colunas")
-                             ^^^^^^^^^^^^^^^^^
-  File "c:\Users\miqueias.silva\AppData\Local\Programs\Python\Python312\Lib\site-packages\pandas\core\generic.py", line 1577, in __nonzero__
-    raise ValueError(
-ValueError: The truth value of a DataFrame is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
-2025-03-28 16:19:28,493 - hades - ERROR - Erro ao carregar dados combinados: The truth value of a DataFrame is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
-Traceback (most recent call last):
-  File "C:\Users\miqueias.silva\Documents\HADES\ui\main_window.py", line 440, in refresh_data
-    self.inventory_view.display_data(df)
-  File "C:\Users\miqueias.silva\Documents\HADES\ui\inventory_view.py", line 62, in display_data
-    )
-  File "C:\Users\miqueias.silva\Documents\HADES\ui\inventory_view.py", line 69, in _apply_styling
-    self.status_var.set(f"Exibindo {len(data)} registros | {len(data.columns)} colunas")
-                             ^^^^^^^^^^^^^^^^^
-  File "c:\Users\miqueias.silva\AppData\Local\Programs\Python\Python312\Lib\site-packages\pandas\core\generic.py", line 1577, in __nonzero__
-    raise ValueError(
-ValueError: The truth value of a DataFrame is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
-2025-03-28 16:21:00,224 - hades - ERROR - Erro ao carregar dados combinados: The truth value of a DataFrame is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
-Traceback (most recent call last):
-  File "C:\Users\miqueias.silva\Documents\HADES\ui\main_window.py", line 440, in refresh_data
-    self.inventory_view.display_data(df)
-  File "C:\Users\miqueias.silva\Documents\HADES\ui\inventory_view.py", line 62, in display_data
-    )
-  File "C:\Users\miqueias.silva\Documents\HADES\ui\inventory_view.py", line 69, in _apply_styling
-    self.status_var.set(f"Exibindo {len(data)} registros | {len(data.columns)} colunas")
-                             ^^^^^^^^^^^^^^^^^
-  File "c:\Users\miqueias.silva\AppData\Local\Programs\Python\Python312\Lib\site-packages\pandas\core\generic.py", line 1577, in __nonzero__
-    raise ValueError(
-ValueError: The truth value of a DataFrame is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
-2025-03-28 16:23:36,760 - hades - ERROR - Erro ao carregar dados combinados: The truth value of a DataFrame is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
-Traceback (most recent call last):
-  File "C:\Users\miqueias.silva\Documents\HADES\ui\main_window.py", line 440, in refresh_data
-    self.inventory_view.display_data(df)
-  File "C:\Users\miqueias.silva\Documents\HADES\ui\inventory_view.py", line 62, in display_data
-    )
-  File "C:\Users\miqueias.silva\Documents\HADES\ui\inventory_view.py", line 69, in _apply_styling
-    self.status_var.set(f"Exibindo {len(data)} registros | {len(data.columns)} colunas")
-                             ^^^^^^^^^^^^^^^^^
-  File "c:\Users\miqueias.silva\AppData\Local\Programs\Python\Python312\Lib\site-packages\pandas\core\generic.py", line 1577, in __nonzero__
-    raise ValueError(
-ValueError: The truth value of a DataFrame is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
-2025-03-28 16:24:31,211 - hades - ERROR - Erro ao carregar dados combinados: The truth value of a DataFrame is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
-Traceback (most recent call last):
-  File "C:\Users\miqueias.silva\Documents\HADES\ui\main_window.py", line 440, in refresh_data
-    self.inventory_view.display_data(df)
-  File "C:\Users\miqueias.silva\Documents\HADES\ui\inventory_view.py", line 62, in display_data
-    )
-  File "C:\Users\miqueias.silva\Documents\HADES\ui\inventory_view.py", line 69, in _apply_styling
-    self.status_var.set(f"Exibindo {len(data)} registros | {len(data.columns)} colunas")
-                             ^^^^^^^^^^^^^^^^^
-  File "c:\Users\miqueias.silva\AppData\Local\Programs\Python\Python312\Lib\site-packages\pandas\core\generic.py", line 1577, in __nonzero__
-    raise ValueError(
-ValueError: The truth value of a DataFrame is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
-2025-03-28 16:25:07,414 - hades - ERROR - Erro ao carregar dados combinados: The truth value of a DataFrame is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
-Traceback (most recent call last):
-  File "C:\Users\miqueias.silva\Documents\HADES\ui\main_window.py", line 440, in refresh_data
-    self.inventory_view.display_data(df)
-  File "C:\Users\miqueias.silva\Documents\HADES\ui\inventory_view.py", line 62, in display_data
-    )
-  File "C:\Users\miqueias.silva\Documents\HADES\ui\inventory_view.py", line 69, in _apply_styling
-    self.status_var.set(f"Exibindo {len(data)} registros | {len(data.columns)} colunas")
-                             ^^^^^^^^^^^^^^^^^
-  File "c:\Users\miqueias.silva\AppData\Local\Programs\Python\Python312\Lib\site-packages\pandas\core\generic.py", line 1577, in __nonzero__
-    raise ValueError(
-ValueError: The truth value of a DataFrame is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
-2025-03-28 16:34:21,531 - hades - ERROR - Erro ao carregar dados combinados: The truth value of a DataFrame is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
-Traceback (most recent call last):
-  File "C:\Users\miqueias.silva\Documents\HADES\ui\main_window.py", line 440, in refresh_data
-    self.inventory_view.display_data(df)
-  File "C:\Users\miqueias.silva\Documents\HADES\ui\inventory_view.py", line 62, in display_data
-    )
-  File "C:\Users\miqueias.silva\Documents\HADES\ui\inventory_view.py", line 69, in _apply_styling
-    self.status_var.set(f"Exibindo {len(data)} registros | {len(data.columns)} colunas")
-                             ^^^^^^^^^^^^^^^^^
-  File "c:\Users\miqueias.silva\AppData\Local\Programs\Python\Python312\Lib\site-packages\pandas\core\generic.py", line 1577, in __nonzero__
-    raise ValueError(
-ValueError: The truth value of a DataFrame is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
-2025-03-28 17:17:06,440 - hades - ERROR - Erro ao carregar imagem inicial: [Errno 2] No such file or directory: 'hades.jpg'
-2025-03-28 17:31:32,050 - hades - ERROR - Erro ao carregar splash: [Errno 2] No such file or directory: 'C:\\Users\\miqueias.silva\\Documents\\HADES\\ui\\assets\\hades.jpeg'
-2025-03-28 17:33:20,180 - hades - ERROR - Erro ao carregar splash: module 'PIL.Image' has no attribute 'ANTIALIAS'
-2025-03-28 17:38:32,959 - hades - WARNING - Imagem splash n�o encontrada nos locais:
-2025-03-28 17:38:32,959 - hades - WARNING - - C:\Users\miqueias.silva\Documents\HADES\ui\assets\hades.jpeg
-2025-03-28 17:38:32,959 - hades - WARNING - - C:\Users\miqueias.silva\Documents\HADES\ui\hades.jpeg
-2025-03-28 17:38:32,959 - hades - WARNING - - C:\Users\miqueias.silva\Documents\HADES\ui\ui\assets\hades.jpeg
-2025-04-01 15:19:35,615 - hades - INFO - Nenhum arquivo de dados combinados encontrado
-2025-04-01 15:19:38,304 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
-2025-04-01 15:19:57,896 - hades - ERROR - Erro ao carregar dados combinados: Invalid column metadata (corrupt file?)
-Traceback (most recent call last):
-  File "C:\Users\miqueias.silva\Documents\HADES\ui\main_window.py", line 513, in refresh_data
-    df = pd.read_parquet(combined_file)
-         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "c:\Users\miqueias.silva\AppData\Local\Programs\Python\Python312\Lib\site-packages\pandas\io\parquet.py", line 667, in read_parquet
-    return impl.read(
-           ^^^^^^^^^^
-  File "c:\Users\miqueias.silva\AppData\Local\Programs\Python\Python312\Lib\site-packages\pandas\io\parquet.py", line 274, in read
-    pa_table = self.api.parquet.read_table(
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "c:\Users\miqueias.silva\AppData\Local\Programs\Python\Python312\Lib\site-packages\pyarrow\parquet\core.py", line 1843, in read_table
-    return dataset.read(columns=columns, use_threads=use_threads,
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "c:\Users\miqueias.silva\AppData\Local\Programs\Python\Python312\Lib\site-packages\pyarrow\parquet\core.py", line 1485, in read
-    table = self._dataset.to_table(
-            ^^^^^^^^^^^^^^^^^^^^^^^
-  File "pyarrow\\_dataset.pyx", line 574, in pyarrow._dataset.Dataset.to_table
-  File "pyarrow\\_dataset.pyx", line 3865, in pyarrow._dataset.Scanner.to_table
-  File "pyarrow\\error.pxi", line 155, in pyarrow.lib.pyarrow_internal_check_status
-  File "pyarrow\\error.pxi", line 92, in pyarrow.lib.check_status
-OSError: Invalid column metadata (corrupt file?)
-2025-04-01 15:25:16,580 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
-2025-04-01 15:25:20,220 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
-2025-04-01 15:25:20,460 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
-2025-04-01 15:25:20,643 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
-2025-04-01 15:25:43,590 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
-2025-04-01 15:25:55,163 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
-2025-04-01 15:27:37,432 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
-2025-04-03 11:15:36,449 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
-2025-04-03 11:27:27,509 - hades - INFO - Nenhum arquivo de dados combinados encontrado
-2025-04-03 11:48:35,003 - hades - INFO - Nenhum arquivo de dados combinados encontrado
-2025-04-03 12:00:31,259 - hades - INFO - Nenhum arquivo de dados combinados encontrado
-2025-04-03 12:08:42,039 - hades - INFO - Nenhum arquivo de dados combinados encontrado
-2025-04-03 13:55:17,768 - hades - INFO - Nenhum arquivo de dados combinados encontrado
-2025-04-03 14:49:06,104 - hades - ERROR - Erro ao criar inventário: 'ConfigManager' object is not callable
-Traceback (most recent call last):
-  File "C:\Users\miqueias.silva\Documents\HADES\ui\main_window.py", line 280, in _handle_create_inventory
-    with self._operation_in_progress():
-         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\miqueias.silva\Documents\HADES\ui\main_window.py", line 480, in __enter__
-    self.window.set_cursor("watch")
-  File "C:\Users\miqueias.silva\Documents\HADES\ui\main_window.py", line 512, in set_cursor
-    self.config(cursor=cursor_type)
-TypeError: 'ConfigManager' object is not callable
-2025-04-03 14:53:09,486 - hades - ERROR - Erro ao criar inventário: 'ConfigManager' object is not callable
-Traceback (most recent call last):
-  File "C:\Users\miqueias.silva\Documents\HADES\ui\main_window.py", line 280, in _handle_create_inventory
-    with self._operation_in_progress():
-         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\miqueias.silva\Documents\HADES\ui\main_window.py", line 480, in __enter__
-    self.window.set_cursor("watch")
-  File "C:\Users\miqueias.silva\Documents\HADES\ui\main_window.py", line 512, in set_cursor
-    self.config(cursor=cursor_type)
-TypeError: 'ConfigManager' object is not callable
-2025-04-03 14:55:16,119 - hades - INFO - Processando...
-2025-04-03 14:55:17,052 - hades - INFO - Processando...
-2025-04-03 14:55:17,073 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
-2025-04-03 14:55:17,084 - hades - INFO - Pronto
-2025-04-03 14:55:18,902 - hades - INFO - Pronto
-2025-04-03 14:55:35,305 - hades - INFO - Processando...
-2025-04-03 14:55:35,347 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
-2025-04-03 14:55:35,349 - hades - INFO - Pronto
-2025-04-03 14:55:40,801 - hades - INFO - Processando...
-2025-04-03 15:14:31,266 - hades - INFO - Processando...
-2025-04-03 15:15:54,470 - hades - INFO - Processando...
-2025-04-03 15:24:46,194 - hades - INFO - Processando...
-2025-04-03 15:24:46,344 - hades - INFO - Processando...
-2025-04-03 15:24:46,379 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
-2025-04-03 15:24:46,379 - hades - INFO - Pronto
-2025-04-03 15:24:47,655 - hades - INFO - Pronto
-2025-04-03 15:25:07,722 - hades - INFO - Processando...
-2025-04-03 15:25:07,764 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
-2025-04-03 15:25:07,765 - hades - INFO - Pronto
-2025-04-03 15:25:13,530 - hades - INFO - Processando...
-2025-04-03 15:28:17,068 - hades - INFO - Pronto
-2025-04-03 15:40:48,050 - hades - INFO - Processando...
-2025-04-03 15:40:49,063 - hades - INFO - Processando...
-2025-04-03 15:40:49,129 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
-2025-04-03 15:40:49,129 - hades - INFO - Pronto
-2025-04-03 15:40:50,189 - hades - INFO - Pronto
-2025-04-03 15:41:02,581 - hades - INFO - Processando...
-2025-04-03 15:41:02,612 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
-2025-04-03 15:41:02,632 - hades - INFO - Pronto
-2025-04-03 15:41:12,455 - hades - INFO - Processando...
-2025-04-03 15:41:14,590 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 1106652
-2025-04-03 15:41:14,590 - hades - INFO - Pronto
-2025-04-03 15:42:12,767 - hades - INFO - Processando...
-2025-04-03 15:42:17,900 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 1106652
-2025-04-03 15:42:17,941 - hades - INFO - Pronto
-2025-04-03 15:42:22,341 - hades - INFO - Processando...
-2025-04-03 15:42:24,579 - hades - INFO - Dados carregados | Itens com excesso: 1307 | Itens faltando: 0 | Total: 1106652
-2025-04-03 15:42:24,579 - hades - INFO - Pronto
-2025-04-03 15:49:46,257 - hades - INFO - Processando...
-2025-04-03 15:49:51,515 - hades - INFO - Dados carregados | Itens com excesso: 1307 | Itens faltando: 0 | Total: 1106652
-2025-04-03 15:49:51,516 - hades - INFO - Pronto
-2025-04-07 16:07:50,066 - hades - INFO - Processando...
-2025-04-07 16:07:54,751 - hades - INFO - Pronto
-2025-04-07 16:07:56,605 - hades - INFO - Dados carregados | Itens com excesso: 1307 | Itens faltando: 0 | Total: 1106652
-2025-04-07 16:54:30,014 - hades - INFO - Processando...
-2025-04-07 16:54:30,153 - hades - INFO - Processando...
-2025-04-07 16:54:30,193 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
-2025-04-07 16:54:30,204 - hades - INFO - Pronto
-2025-04-07 16:54:31,487 - hades - INFO - Pronto
-2025-04-07 16:54:47,390 - hades - INFO - Processando...
-2025-04-07 16:54:47,422 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
-2025-04-07 16:54:47,422 - hades - INFO - Pronto
-2025-04-07 16:55:03,959 - hades - INFO - Processando...
-2025-04-07 16:55:10,451 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 887614
-2025-04-07 16:55:10,462 - hades - INFO - Pronto
-2025-04-07 16:55:17,460 - hades - INFO - Processando...
-2025-04-07 16:55:19,715 - hades - INFO - Dados carregados | Itens com excesso: 1307 | Itens faltando: 0 | Total: 887614
-2025-04-07 16:55:19,725 - hades - INFO - Pronto
-2025-04-07 16:56:45,529 - hades - INFO - Processando...
-2025-04-07 16:56:50,309 - hades - INFO - Dados carregados | Itens com excesso: 1307 | Itens faltando: 0 | Total: 887614
-2025-04-07 16:56:50,309 - hades - INFO - Pronto
-2025-04-07 16:56:51,500 - hades - INFO - Processando...
-2025-04-07 16:56:53,521 - hades - INFO - Dados carregados | Itens com excesso: 1307 | Itens faltando: 0 | Total: 887614
-2025-04-07 16:56:53,521 - hades - INFO - Pronto
-2025-04-07 16:57:38,112 - hades - INFO - Processando...
-2025-04-07 16:57:41,563 - hades - INFO - Dados carregados | Itens com excesso: 1307 | Itens faltando: 0 | Total: 887614
-2025-04-07 16:57:41,563 - hades - INFO - Pronto
-2025-04-07 16:58:18,602 - hades - INFO - Processando...
-2025-04-07 16:58:18,730 - hades - INFO - Processando...
-2025-04-07 16:58:18,755 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
-2025-04-07 16:58:18,755 - hades - INFO - Pronto
-2025-04-07 16:58:19,683 - hades - INFO - Pronto
-2025-04-07 17:02:17,660 - hades - INFO - Processando...
-2025-04-07 17:02:17,701 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
-2025-04-07 17:02:17,702 - hades - INFO - Pronto
-2025-04-07 17:02:25,193 - hades - INFO - Processando...
-2025-04-07 17:02:25,248 - hades - INFO - Processando...
-2025-04-07 17:02:25,274 - hades - INFO - Arquivo combinado não encontrado
-2025-04-07 17:02:25,280 - hades - INFO - Pronto
-2025-04-07 17:02:26,134 - hades - INFO - Pronto
-2025-04-07 17:02:38,580 - hades - INFO - Processando...
-2025-04-07 17:02:38,620 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
-2025-04-07 17:02:38,624 - hades - INFO - Pronto
-2025-04-07 17:02:42,019 - hades - INFO - Processando...
-2025-04-07 17:02:44,062 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 31439 | Total: 887614
-2025-04-07 17:02:44,062 - hades - INFO - Pronto
-2025-04-07 17:05:01,964 - hades - INFO - Processando...
-2025-04-07 17:05:02,073 - hades - INFO - Processando...
-2025-04-07 17:05:02,103 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
-2025-04-07 17:05:02,103 - hades - INFO - Pronto
-2025-04-07 17:05:03,323 - hades - INFO - Pronto
-2025-04-07 17:05:15,698 - hades - INFO - Processando...
-2025-04-07 17:05:15,754 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
-2025-04-07 17:05:15,754 - hades - INFO - Pronto
-2025-04-07 17:05:21,695 - hades - INFO - Processando...
-2025-04-07 17:05:23,481 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 31439 | Total: 887614
-2025-04-07 17:05:23,481 - hades - INFO - Pronto
-2025-04-07 17:17:46,118 - hades - INFO - Processando...
-2025-04-07 17:17:46,242 - hades - INFO - Processando...
-2025-04-07 17:17:46,268 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
-2025-04-07 17:17:46,270 - hades - INFO - Pronto
-2025-04-07 17:17:47,472 - hades - INFO - Pronto
-2025-04-07 17:18:00,620 - hades - INFO - Processando...
-2025-04-07 17:18:00,928 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
-2025-04-07 17:18:00,928 - hades - INFO - Pronto
-2025-04-07 17:18:04,190 - hades - INFO - Processando...
-2025-04-07 17:26:52,797 - hades - INFO - Processando...
-2025-04-07 17:26:52,928 - hades - INFO - Processando...
-2025-04-07 17:26:52,962 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
-2025-04-07 17:26:52,962 - hades - INFO - Pronto
-2025-04-07 17:26:53,874 - hades - INFO - Pronto
-2025-04-07 17:27:06,392 - hades - INFO - Processando...
-2025-04-07 17:27:06,691 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
-2025-04-07 17:27:06,691 - hades - INFO - Pronto
-2025-04-07 17:27:10,620 - hades - INFO - Processando...
-2025-04-07 17:27:11,859 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 31439 | Total: 887614
-2025-04-07 17:27:11,859 - hades - INFO - Pronto
-2025-04-07 17:27:32,092 - hades - ERROR - Erro na operação: 'FileProcessor' object has no attribute 'process_excel_file'
-Traceback (most recent call last):
-  File "C:\Users\miqueias.silva\Desktop\HADES_Inventory\ui\main_window.py", line 443, in execute
-    success, result = operation()
-                      ^^^^^^^^^^^
-  File "C:\Users\miqueias.silva\Desktop\HADES_Inventory\ui\main_window.py", line 323, in <lambda>
-    operation=lambda: self.file_processor.process_excel_file(file_path),
-                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-AttributeError: 'FileProcessor' object has no attribute 'process_excel_file'
-2025-04-07 17:32:38,271 - hades - CRITICAL - Falha na inicialização dos serviços: argument should be a str or an os.PathLike object where __fspath__ returns a str, not 'InventoryManager'
-Traceback (most recent call last):
-  File "C:\Users\miqueias.silva\Desktop\HADES_Inventory\ui\main_window.py", line 58, in _initialize_services
-    self.file_processor = FileProcessor(self.inventory_manager)
-                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\miqueias.silva\Desktop\HADES_Inventory\core\file_processor.py", line 19, in __init__
-    self.data_folder = Path(data_folder)
-                       ^^^^^^^^^^^^^^^^^
-  File "c:\Users\miqueias.silva\AppData\Local\Programs\Python\Python312\Lib\pathlib.py", line 1162, in __init__
-    super().__init__(*args)
-  File "c:\Users\miqueias.silva\AppData\Local\Programs\Python\Python312\Lib\pathlib.py", line 373, in __init__
-    raise TypeError(
-TypeError: argument should be a str or an os.PathLike object where __fspath__ returns a str, not 'InventoryManager'
-2025-04-07 17:33:40,017 - hades - INFO - Processando...
-2025-04-07 17:33:40,145 - hades - INFO - Processando...
-2025-04-07 17:33:40,166 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
-2025-04-07 17:33:40,167 - hades - INFO - Pronto
-2025-04-07 17:33:41,170 - hades - INFO - Pronto
-2025-04-07 17:33:59,479 - hades - INFO - Processando...
-2025-04-07 17:33:59,521 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
-2025-04-07 17:33:59,524 - hades - INFO - Pronto
-2025-04-07 17:34:19,657 - hades - INFO - Processando...
-2025-04-07 17:34:21,407 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 31439 | Total: 887614
-2025-04-07 17:34:21,408 - hades - INFO - Pronto
-2025-04-07 17:34:38,506 - hades - ERROR - Erro na operação: 'FileProcessor' object has no attribute 'process_excel_file'
-Traceback (most recent call last):
-  File "C:\Users\miqueias.silva\Desktop\HADES_Inventory\ui\main_window.py", line 443, in execute
-    success, result = operation()
-                      ^^^^^^^^^^^
-  File "C:\Users\miqueias.silva\Desktop\HADES_Inventory\ui\main_window.py", line 323, in <lambda>
-    operation=lambda: self.file_processor.process_excel_file(file_path),
-                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-AttributeError: 'FileProcessor' object has no attribute 'process_excel_file'. Did you mean: 'process_excel'?
-2025-04-07 17:40:43,428 - hades - ERROR - Erro ao carregar dados: main thread is not in main loop
-Traceback (most recent call last):
-  File "C:\Users\miqueias.silva\Desktop\HADES_Inventory\ui\main_window.py", line 350, in load_and_display
-    with self._operation_in_progress():
-         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\miqueias.silva\Desktop\HADES_Inventory\ui\main_window.py", line 538, in __enter__
-    self.window.set_cursor("watch")
-  File "C:\Users\miqueias.silva\Desktop\HADES_Inventory\ui\main_window.py", line 569, in set_cursor
-    self.configure(cursor=cursor_type)
-  File "c:\Users\miqueias.silva\AppData\Local\Programs\Python\Python312\Lib\tkinter\__init__.py", line 1722, in configure
-    return self._configure('configure', cnf, kw)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "c:\Users\miqueias.silva\AppData\Local\Programs\Python\Python312\Lib\tkinter\__init__.py", line 1712, in _configure
-    self.tk.call(_flatten((self._w, cmd)) + self._options(cnf))
-RuntimeError: main thread is not in main loop
-2025-04-08 09:59:13,366 - hades - INFO - Processando...
-2025-04-08 09:59:15,788 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 31439 | Total: 887614
-2025-04-08 09:59:15,815 - hades - INFO - Pronto
-2025-04-08 09:59:38,149 - hades - INFO - Processando...
-2025-04-08 09:59:39,666 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 31439 | Total: 887614
-2025-04-08 09:59:39,666 - hades - INFO - Pronto
-2025-04-08 09:59:46,412 - hades - INFO - Processando...
-2025-04-08 09:59:47,830 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 31439 | Total: 887614
-2025-04-08 09:59:47,838 - hades - INFO - Pronto
-2025-04-08 09:59:48,808 - hades - INFO - Processando...
-2025-04-08 09:59:50,201 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 31439 | Total: 887614
-2025-04-08 09:59:50,202 - hades - INFO - Pronto
-2025-04-08 10:10:25,656 - hades - INFO - Processando...
-2025-04-08 10:10:25,783 - hades - INFO - Processando...
-2025-04-08 10:10:25,801 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
-2025-04-08 10:10:25,802 - hades - INFO - Pronto
-2025-04-08 10:10:27,917 - hades - INFO - Pronto
-2025-04-08 10:10:42,471 - hades - INFO - Processando...
-2025-04-08 10:10:42,709 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
-2025-04-08 10:10:42,709 - hades - INFO - Pronto
-2025-04-08 10:10:47,355 - hades - INFO - Processando...
-2025-04-08 10:10:48,537 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 31439 | Total: 887614
-2025-04-08 10:10:48,538 - hades - INFO - Pronto
-2025-04-08 14:01:52,661 - hades - INFO - Processando...
-2025-04-08 14:01:53,743 - hades - INFO - Processando...
-2025-04-08 14:01:53,777 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
-2025-04-08 14:01:53,777 - hades - INFO - Pronto
-2025-04-08 14:01:55,132 - hades - INFO - Pronto
-2025-04-08 14:02:06,661 - hades - INFO - Processando...
-2025-04-08 14:02:06,686 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
-2025-04-08 14:02:06,688 - hades - INFO - Pronto
-2025-04-08 14:02:19,846 - hades - INFO - Processando...
-2025-04-08 14:02:20,988 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 31439 | Total: 887614
-2025-04-08 14:02:20,989 - hades - INFO - Pronto
-2025-04-12 15:21:59,395 - hades - INFO - Processando...
-2025-04-12 15:21:59,520 - hades - INFO - Processando...
-2025-04-12 15:21:59,550 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
-2025-04-12 15:21:59,552 - hades - INFO - Pronto
-2025-04-12 15:22:00,524 - hades - INFO - Pronto
-2025-04-12 15:22:13,869 - hades - INFO - Processando...
-2025-04-12 15:22:13,901 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
-2025-04-12 15:22:13,901 - hades - INFO - Pronto
-2025-04-12 15:23:01,522 - hades - INFO - Processando...
-2025-04-12 15:23:03,031 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 31439 | Total: 887614
-2025-04-12 15:23:03,031 - hades - INFO - Pronto
-2025-04-12 15:26:56,947 - hades - INFO - Processando...
-2025-04-12 15:26:57,064 - hades - INFO - Processando...
-2025-04-12 15:26:57,101 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
-2025-04-12 15:26:57,103 - hades - INFO - Pronto
-2025-04-12 15:26:58,199 - hades - INFO - Pronto
-2025-04-12 15:27:09,240 - hades - INFO - Processando...
-2025-04-12 15:27:09,502 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
-2025-04-12 15:27:09,503 - hades - INFO - Pronto
-2025-04-12 15:27:26,420 - hades - INFO - Processando...
-2025-04-12 15:27:27,589 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 31439 | Total: 887614
-2025-04-12 15:27:27,590 - hades - INFO - Pronto
-2025-04-12 15:35:29,451 - hades - ERROR - Erro na operação: 'FileProcessor' object has no attribute 'process_excel'
-Traceback (most recent call last):
-  File "C:\Users\miqueias.silva\Desktop\HADES_Inventory\ui\main_window.py", line 508, in execute
-    success, result = operation()
-                      ^^^^^^^^^^^
-  File "C:\Users\miqueias.silva\Desktop\HADES_Inventory\ui\main_window.py", line 341, in <lambda>
-    operation=lambda: self.file_processor.process_excel(file_path),
-                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-AttributeError: 'FileProcessor' object has no attribute 'process_excel'
-2025-04-12 16:25:14,249 - hades - INFO - Processando...
-2025-04-12 16:25:14,377 - hades - INFO - Processando...
-2025-04-12 16:25:14,412 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
-2025-04-12 16:25:14,412 - hades - INFO - Pronto
-2025-04-12 16:25:15,418 - hades - INFO - Pronto
-2025-04-12 16:25:28,748 - hades - INFO - Processando...
-2025-04-12 16:25:28,778 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
-2025-04-12 16:25:28,780 - hades - INFO - Pronto
-2025-04-12 16:27:09,778 - hades - INFO - Processando...
-2025-04-12 16:27:10,997 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 31439 | Total: 887614
-2025-04-12 16:27:10,997 - hades - INFO - Pronto
-2025-04-12 17:27:34,588 - hades - INFO - Processando...
-2025-04-12 17:27:35,576 - hades - INFO - Processando...
-2025-04-12 17:27:35,622 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
-2025-04-12 17:27:35,622 - hades - INFO - Pronto
-2025-04-12 17:27:36,815 - hades - INFO - Pronto
-2025-04-12 17:27:48,327 - hades - INFO - Processando...
-2025-04-12 17:27:48,367 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
-2025-04-12 17:27:48,369 - hades - INFO - Pronto
-2025-04-12 17:27:55,321 - hades - INFO - Processando...
-2025-04-12 17:27:56,472 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 31439 | Total: 887614
-2025-04-12 17:27:56,472 - hades - INFO - Pronto
+2025-04-12 18:29:04,670 - hades - INFO - Processando...
+2025-04-12 18:29:04,787 - hades - INFO - Processando...
+2025-04-12 18:29:04,812 - hades - INFO - Arquivo combinado não encontrado
+2025-04-12 18:29:04,834 - hades - INFO - Pronto
+2025-04-12 18:29:05,687 - hades - INFO - Pronto
+2025-04-12 18:29:16,917 - hades - INFO - Processando...
+2025-04-12 18:29:16,957 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
+2025-04-12 18:29:16,959 - hades - INFO - Pronto
+2025-04-12 18:29:24,837 - hades - INFO - Processando...
+2025-04-12 18:29:26,018 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 31439 | Total: 887614
+2025-04-12 18:29:26,018 - hades - INFO - Pronto
+2025-04-12 18:29:47,789 - hades - INFO - Processando...
+2025-04-12 18:29:49,180 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 31439 | Total: 887614
+2025-04-12 18:29:49,180 - hades - INFO - Pronto
+2025-04-12 18:29:54,505 - hades - INFO - Processando...
+2025-04-12 18:29:55,715 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 31439 | Total: 887614
+2025-04-12 18:29:55,715 - hades - INFO - Pronto
+2025-04-12 18:34:13,833 - hades - INFO - Processando...
+2025-04-12 18:34:15,218 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 31439 | Total: 887614
+2025-04-12 18:34:15,218 - hades - INFO - Pronto
+2025-04-12 18:34:36,573 - hades - INFO - Processando...
+2025-04-12 18:34:37,931 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 31439 | Total: 887614
+2025-04-12 18:34:37,936 - hades - INFO - Pronto
+2025-04-12 18:34:51,924 - hades - INFO - Processando...
+2025-04-12 18:34:53,163 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 31439 | Total: 887614
+2025-04-12 18:34:53,163 - hades - INFO - Pronto
+2025-04-12 18:44:16,733 - hades - INFO - Processando...
+2025-04-12 18:44:16,855 - hades - INFO - Processando...
+2025-04-12 18:44:16,874 - hades - INFO - Arquivo combinado não encontrado
+2025-04-12 18:44:16,882 - hades - INFO - Pronto
+2025-04-12 18:44:17,859 - hades - INFO - Pronto
+2025-04-12 18:44:29,761 - hades - INFO - Processando...
+2025-04-12 18:44:29,976 - hades - INFO - Arquivo combinado não encontrado
+2025-04-12 18:44:29,991 - hades - INFO - Pronto
+2025-04-12 18:44:36,523 - hades - INFO - Processando...
+2025-04-12 18:44:37,342 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
+2025-04-12 18:44:37,342 - hades - INFO - Pronto
+2025-04-12 18:44:43,391 - hades - INFO - Processando...
+2025-04-12 18:44:44,208 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
+2025-04-12 18:44:44,208 - hades - INFO - Pronto
+2025-04-12 18:45:05,976 - hades - INFO - Processando...
+2025-04-12 18:45:06,843 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
+2025-04-12 18:45:06,843 - hades - INFO - Pronto
+2025-04-12 18:45:20,296 - hades - INFO - Processando...
+2025-04-12 18:45:21,174 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
+2025-04-12 18:45:21,174 - hades - INFO - Pronto
+2025-04-12 18:45:23,202 - hades - INFO - Processando...
+2025-04-12 18:45:24,003 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
+2025-04-12 18:45:24,018 - hades - INFO - Pronto
+2025-04-12 18:45:41,084 - hades - INFO - Processando...
+2025-04-12 18:45:42,043 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
+2025-04-12 18:45:42,043 - hades - INFO - Pronto
+2025-04-12 18:45:48,462 - hades - INFO - Processando...
+2025-04-12 18:45:49,338 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
+2025-04-12 18:45:49,338 - hades - INFO - Pronto
+2025-04-12 18:45:51,381 - hades - INFO - Processando...
+2025-04-12 18:45:52,236 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
+2025-04-12 18:45:52,236 - hades - INFO - Pronto
+2025-04-12 18:59:13,391 - hades - INFO - Processando...
+2025-04-12 18:59:13,504 - hades - INFO - Processando...
+2025-04-12 18:59:13,523 - hades - INFO - Arquivo combinado não encontrado
+2025-04-12 18:59:13,530 - hades - INFO - Pronto
+2025-04-12 18:59:14,584 - hades - INFO - Pronto
+2025-04-12 18:59:26,735 - hades - INFO - Processando...
+2025-04-12 18:59:26,779 - hades - INFO - Arquivo combinado não encontrado
+2025-04-12 18:59:26,880 - hades - INFO - Pronto
+2025-04-12 18:59:28,795 - hades - INFO - Processando...
+2025-04-12 18:59:29,646 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
+2025-04-12 18:59:29,646 - hades - INFO - Pronto
+2025-04-12 18:59:36,127 - hades - INFO - Processando...
+2025-04-12 18:59:37,022 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
+2025-04-12 18:59:37,023 - hades - INFO - Pronto
+2025-04-12 19:10:17,645 - hades - INFO - Processando...
+2025-04-12 19:10:18,632 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
+2025-04-12 19:10:18,632 - hades - INFO - Pronto
+2025-04-12 19:10:19,278 - hades - INFO - Processando...
+2025-04-12 19:10:20,159 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
+2025-04-12 19:10:20,159 - hades - INFO - Pronto
+2025-04-12 19:10:27,807 - hades - INFO - Processando...
+2025-04-12 19:10:28,592 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
+2025-04-12 19:10:28,592 - hades - INFO - Pronto
+2025-04-12 19:10:37,914 - hades - INFO - Processando...
+2025-04-12 19:10:38,789 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
+2025-04-12 19:10:38,789 - hades - INFO - Pronto
+2025-04-12 19:10:40,809 - hades - INFO - Processando...
+2025-04-12 19:10:41,606 - hades - INFO - Dados carregados | Itens com excesso: 0 | Itens faltando: 0 | Total: 0
+2025-04-12 19:10:41,607 - hades - INFO - Pronto
+2025-04-12 19:12:37,421 - hades - INFO - Processando...
+2025-04-12 19:12:37,533 - hades - INFO - Processando...
+2025-04-12 19:12:37,571 - hades - INFO - Arquivo combinado não encontrado
+2025-04-12 19:12:37,583 - hades - INFO - Pronto
+2025-04-12 19:12:38,561 - hades - INFO - Pronto
+2025-04-12 19:12:51,029 - hades - INFO - Processando...
+2025-04-12 19:12:51,039 - hades - INFO - Arquivo combinado não encontrado
+2025-04-12 19:12:51,044 - hades - INFO - Pronto
+2025-04-12 19:18:22,350 - hades - INFO - Processando...
+2025-04-12 19:18:22,462 - hades - INFO - Processando...
+2025-04-12 19:18:22,488 - hades - INFO - Arquivo combinado não encontrado
+2025-04-12 19:18:22,495 - hades - INFO - Pronto
+2025-04-12 19:18:23,820 - hades - INFO - Pronto
+2025-04-12 19:18:44,665 - hades - INFO - Processando...
+2025-04-12 19:18:44,676 - hades - INFO - Arquivo combinado não encontrado
+2025-04-12 19:18:44,678 - hades - INFO - Pronto
+2025-04-12 19:18:54,038 - hades - INFO - Processando...
+2025-04-12 19:18:54,040 - hades - INFO - Arquivo combinado não encontrado
+2025-04-12 19:18:54,040 - hades - INFO - Pronto
+2025-04-12 19:19:24,156 - hades - INFO - Processando...
+2025-04-12 19:19:24,287 - hades - INFO - Processando...
+2025-04-12 19:19:24,305 - hades - INFO - Arquivo combinado não encontrado
+2025-04-12 19:19:24,306 - hades - INFO - Pronto
+2025-04-12 19:19:25,520 - hades - INFO - Pronto
