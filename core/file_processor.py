@@ -126,10 +126,13 @@ class FileProcessor:
     def process_initial_txt(self, file_path: str) -> Tuple[bool, str]:
         """Processa o arquivo TXT inicial."""
         try:
-            # Obtém o caminho da pasta de dados do inventário ativo
-            data_path = self.inventory_manager.get_active_inventory_data_path()
-            if not data_path:
+            inventory_path = self.inventory_manager.active_inventory_path
+            if not inventory_path:
                 return False, "Nenhum inventário ativo selecionado."
+
+            # Garante que a pasta dados existe dentro da pasta do inventário
+            data_path = Path(inventory_path) / "dados"
+            data_path.mkdir(parents=True, exist_ok=True)
 
             # Detecta a codificação do arquivo TXT
             encodings_to_try = [self.detect_encoding(file_path), 'utf-8', 'latin-1']
@@ -195,23 +198,15 @@ class FileProcessor:
                              'Custo', 'Secao', 'Flag']
             df = df[columns_order]
 
-            # Salva os dados no arquivo initial_data.parquet
-            output_path = Path(data_path) / "initial_data.parquet"
+            # Salva no local CORRETO: data/[inventario]/dados/initial_data.parquet
+            output_path = data_path / "initial_data.parquet"
             df.to_parquet(output_path, index=False)
-
-            # Dispara a combinação de dados em uma thread separada
-            threading.Thread(
-                target=self._trigger_data_combination,
-                args=(data_path,),
-                daemon=True
-            ).start()
 
             return True, f"Arquivo processado com sucesso. {len(data)} itens importados."
 
         except Exception as e:
             self.logger.error(f"Erro ao processar TXT: {e}", exc_info=True)
             return False, f"Erro crítico: {str(e)}"
-
     
     def _trigger_data_combination(self, data_path: str) -> bool:
         """Dispara a combinação de dados com tratamento de erros."""
@@ -294,13 +289,13 @@ class FileProcessor:
             raise
 
     def process_excel(self, file_path: str) -> Tuple[bool, str]:
-        """Processa arquivo Excel no formato específico"""
+        """Processa arquivo Excel específico para contagem e salva em dados123.parquet"""
         try:
             data_path = self.inventory_manager.get_active_inventory_data_path()
             if not data_path:
                 return False, "Nenhum inventário ativo selecionado"
 
-            # Carrega a primeira planilha (assumindo que só tem uma)
+            # Carrega o arquivo Excel
             df = pd.read_excel(file_path, sheet_name=0)
             
             # Remove linhas totalmente vazias
@@ -309,32 +304,83 @@ class FileProcessor:
             if len(df) < 1:
                 return False, "Planilha vazia ou sem dados válidos"
 
-            # Mapeia colunas
-            mapped_df = self._map_excel_columns(df)
-            if mapped_df is None:
-                return False, "Colunas obrigatórias não encontradas no arquivo Excel"
+            # Renomeia colunas para padrão interno (case insensitive)
+            column_mapping = {
+                'cód. barras': 'COD_BARRAS',
+                'cod. barras': 'COD_BARRAS',
+                'codigo barras': 'COD_BARRAS',
+                'qnt. contada': 'QNT_CONTADA',
+                'quantidade contada': 'QNT_CONTADA',
+                'operador': 'OPERADOR',
+                'endereço': 'ENDERECO',
+                'endereco': 'ENDERECO',
+                'loja key': 'LOJA_KEY'
+            }
             
-            # Limpeza e agrupamento dos dados
-            cleaned_df = self._clean_excel_data(mapped_df)
+            # Padroniza nomes das colunas
+            df.columns = [column_mapping.get(col.lower().strip(), col) for col in df.columns]
             
-            # Adiciona colunas padrão que podem estar faltando
-            for col in ['Codigo', 'Descricao', 'Preco', 'Custo', 'Secao']:
-                if col not in cleaned_df.columns:
-                    cleaned_df[col] = None
+            # Verifica colunas obrigatórias
+            required_columns = {'COD_BARRAS', 'QNT_CONTADA'}
+            if not required_columns.issubset(df.columns):
+                missing = required_columns - set(df.columns)
+                return False, f"Colunas obrigatórias faltando: {missing}"
+
+            # Converte código de barras para string e remove notação científica
+            df['COD_BARRAS'] = (
+                df['COD_BARRAS']
+                .astype(str)
+                .str.replace(r'\.0$', '', regex=True)  # Remove .0 no final
+                .str.replace(r'\D', '', regex=True)    # Remove não-dígitos
+                .apply(self._remove_leading_zeros)
+            )
+
+            # Converte quantidade para numérico
+            df['QNT_CONTADA'] = pd.to_numeric(df['QNT_CONTADA'], errors='coerce').fillna(0)
+
+            # Processa campos de texto
+            text_cols = ['OPERADOR', 'ENDERECO']
+            for col in text_cols:
+                if col in df.columns:
+                    df[col] = df[col].astype(str).str.strip()
+
+            # Agrupa os dados
+            agg_rules = {'QNT_CONTADA': 'sum'}
+            for col in text_cols:
+                if col in df.columns:
+                    agg_rules[col] = lambda x: ' / '.join(sorted(set(x.astype(str))))
             
-            # Adiciona flags
-            cleaned_df = self._add_flag_data(cleaned_df)
+            grouped_df = df.groupby('COD_BARRAS', as_index=False).agg(agg_rules)
+
+            # Caminho do arquivo de destino
+            output_path = Path(data_path) / "dados123.parquet"
+
+            # Se o arquivo já existir, faz merge com os dados existentes
+            if output_path.exists():
+                existing_df = pd.read_parquet(output_path)
+                
+                # Concatena os dataframes
+                combined_df = pd.concat([existing_df, grouped_df])
+                
+                # Reagrupa para consolidar os dados
+                final_df = combined_df.groupby('COD_BARRAS', as_index=False).agg(agg_rules)
+            else:
+                final_df = grouped_df
+
+            # Seleciona apenas as colunas desejadas na ordem correta
+            final_cols = ['COD_BARRAS', 'QNT_CONTADA']
+            for col in ['OPERADOR', 'ENDERECO']:
+                if col in final_df.columns:
+                    final_cols.append(col)
             
-            # Ordena colunas
-            final_cols = ['GTIN', 'Codigo', 'Descricao', 'Preco', 'Estoque', 
-                        'Custo', 'Secao', 'Flag', 'Endereco', 'Operador']
-            cleaned_df = cleaned_df[[col for col in final_cols if col in cleaned_df.columns]]
-            
-            # Salva os dados
-            output_path = Path(data_path) / "initial_data.parquet"
-            cleaned_df.to_parquet(output_path, index=False)
-            
-            return True, f"Excel processado com sucesso. {len(cleaned_df)} itens agrupados."
+            final_df = final_df[final_cols]
+
+            # Salva o arquivo
+            final_df.to_parquet(output_path, index=False)
+
+            return True, (f"Dados processados com sucesso. "
+                        f"Total de {len(final_df)} itens únicos. "
+                        f"Quantidade total: {final_df['QNT_CONTADA'].sum():.0f}")
 
         except Exception as e:
             self.logger.error(f"Erro ao processar Excel: {e}", exc_info=True)
