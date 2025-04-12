@@ -1,32 +1,18 @@
-#file_processor.py
 import pandas as pd
 import re
 from pathlib import Path
-from typing import Tuple, Optional, Dict
+from typing import Tuple, Optional
 import logging
 import chardet
-from datetime import datetime
 import threading
-import openpyxl
 
 from .data_combiner import DataCombiner
+
 
 class FileProcessor:
     def __init__(self, inventory_manager):
         self.inventory_manager = inventory_manager
         self.logger = logging.getLogger(__name__)
-        # Configurações para processamento de Excel
-        self.excel_column_mapping = {
-            'GTIN': ['EAN', 'GTIN', 'CÓDIGO DE BARRAS', 'CODIGO_BARRAS', 'CODIGO BARRAS'],
-            'Codigo': ['CÓDIGO', 'CODIGO', 'SKU', 'PRODUTO', 'ITEM'],
-            'Descricao': ['DESCRIÇÃO', 'DESCRICAO', 'NOME', 'PRODUTO'],
-            'Preco': ['PREÇO', 'PRECO', 'VALOR', 'PV', 'PRICE'],
-            'Estoque': ['ESTOQUE', 'QUANTIDADE', 'QTD', 'STOCK'],
-            'Custo': ['CUSTO', 'CMV', 'COST'],
-            'Secao': ['SEÇÃO', 'SECAO', 'DEPTO', 'DEPARTAMENTO', 'CATEGORIA'],
-            'Endereco': ['ENDEREÇO', 'ENDERECO', 'LOCAL', 'LOCALIZAÇÃO'],
-            'Operador': ['OPERADOR', 'FUNCIONARIO', 'CONTADOR']
-        }
 
     @staticmethod
     def detect_encoding(file_path: str) -> Optional[str]:
@@ -47,58 +33,172 @@ class FileProcessor:
         return value.lstrip('0') or '0'
 
     def _add_flag_data(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Adiciona dados de flag com tratamento para formato atual."""
+        """
+        Faz o join do DataFrame processado com o arquivo `prod_flag.parquet` usando apenas o código do produto.
+        Adiciona a coluna `Flag` com base no arquivo `prod_flag.parquet`.
+        """
         try:
-            flag_file = Path(__file__).parent / 'prod_flag.parquet'
+            # Caminho para o arquivo prod_flag.parquet
+            flag_file = Path(__file__).parent.parent / 'core' / 'prod_flag.parquet'
 
             if not flag_file.exists():
-                self.logger.warning("Arquivo prod_flag.parquet não encontrado")
-                df['Flag'] = 'Sem flag'
+                self.logger.warning("Arquivo 'prod_flag.parquet' não encontrado.")
+                df['Flag'] = ''  # Adiciona coluna vazia se arquivo não existir
                 return df
 
-            # Carrega o arquivo de flags
+            # Carrega o arquivo prod_flag.parquet
             flag_df = pd.read_parquet(flag_file)
-            self.logger.debug(f"Colunas disponíveis no flag_df: {flag_df.columns.tolist()}")
-            
-            # Padroniza nomes de colunas (case insensitive)
-            flag_df.columns = flag_df.columns.str.upper()
-            
-            # Tenta identificar as colunas relevantes no arquivo de flags
-            produto_key_col = next((c for c in flag_df.columns if 'PRODUTO_KEY' in c or 'CODIGO' in c or 'SKU' in c), None)
-            flag_col = next((c for c in flag_df.columns if 'FLAG' in c or 'STATUS' in c), None)
 
-            if not flag_col:
-                self.logger.error("Coluna de flag não encontrada no arquivo de flags")
-                df['Flag'] = 'Sem flag'
+            # Verifica colunas obrigatórias
+            required_columns = {'produto_key', 'flag'}
+            if not required_columns.issubset(flag_df.columns):
+                self.logger.error(f"Colunas obrigatórias {required_columns} ausentes no arquivo 'prod_flag.parquet'.")
+                df['Flag'] = ''
                 return df
 
-            # Converte tipos de dados para garantir compatibilidade
-            df['Codigo'] = df['Codigo'].astype(str).str.strip()
-            flag_df[produto_key_col] = flag_df[produto_key_col].astype(str).str.strip()
-            
-            # Faz merge apenas pelo código do produto (produto_key)
-            merged = pd.merge(
+            # Pré-processamento - Normalização das chaves
+            def normalize_code(code: str) -> str:
+                """Remove todos os não-dígitos e zeros à esquerda"""
+                if pd.isna(code):
+                    return ''
+                return ''.join(filter(str.isdigit, str(code))).lstrip('0') or '0'
+
+            # Aplica normalização
+            df['Codigo_normalized'] = df['Codigo'].apply(normalize_code)
+            flag_df['produto_key_normalized'] = flag_df['produto_key'].apply(normalize_code)
+
+            # Faz o join apenas pelo código normalizado
+            merged_df = pd.merge(
                 df,
-                flag_df[[produto_key_col, flag_col]].drop_duplicates(subset=[produto_key_col]),
+                flag_df[['produto_key_normalized', 'flag']],
                 how='left',
-                left_on='Codigo',
-                right_on=produto_key_col
+                left_on=['Codigo_normalized'],
+                right_on=['produto_key_normalized']
             )
+
+            # Adiciona a coluna Flag e remove colunas temporárias
+            df['Flag'] = merged_df['flag'].fillna('')
+            df.drop(columns=['Codigo_normalized'], inplace=True, errors='ignore')
+
+            # Estatísticas
+            flagged_count = (df['Flag'] != '').sum()
+            self.logger.info(f"Flags aplicadas em {flagged_count} de {len(df)} produtos ({(flagged_count/len(df))*100:.2f}%)")
             
-            # Atualiza a coluna Flag com os valores encontrados
-            df['Flag'] = merged[flag_col].fillna('Sem flag')
-            
-            # Loga quantos produtos receberam flag
-            flagged_count = (df['Flag'] != 'Sem flag').sum()
-            self.logger.info(f"Flags aplicadas em {flagged_count} produtos")
+            # Debug: mostra exemplos de matches
+            if flagged_count > 0:
+                sample_matches = df[df['Flag'] != ''].head(3)[['Codigo', 'Flag']]
+                self.logger.debug(f"Exemplos de matches:\n{sample_matches.to_string()}")
             
             return df
 
         except Exception as e:
-            self.logger.error(f"Erro ao adicionar flags: {str(e)}", exc_info=True)
-            df['Flag'] = 'Sem flag'
+            self.logger.error(f"Erro ao adicionar flags: {e}", exc_info=True)
+            df['Flag'] = ''
             return df
 
+    def process_initial_txt(self, file_path: str) -> Tuple[bool, str]:
+        """Processa o arquivo TXT inicial."""
+        try:
+            # Obtém o caminho da pasta de dados do inventário ativo
+            data_path = self.inventory_manager.get_active_inventory_data_path()
+            if not data_path:
+                return False, "Nenhum inventário ativo selecionado."
+
+            # Detecta a codificação do arquivo TXT
+            encodings_to_try = [self.detect_encoding(file_path), 'utf-8', 'latin-1']
+            lines = []
+
+            for encoding in filter(None, set(encodings_to_try)):
+                try:
+                    with open(file_path, 'r', encoding=encoding) as f:
+                        lines = f.readlines()
+                    break
+                except UnicodeDecodeError:
+                    continue
+
+            if not lines:
+                return False, "Não foi possível ler o arquivo."
+
+            # Expressão regular para parsing das linhas no arquivo TXT
+            pattern = re.compile(
+                r'^(?P<gtin>\d{13})\s+'         # GTIN (13 dígitos)
+                r'(?P<codigo>\d{9})\s+'         # Codigo (9 dígitos)
+                r'(?P<descricao>.+?)\s+'        # Descricao (texto variável)
+                r'(?P<preco>\d{8})\s+'          # Preco (8 dígitos)
+                r'(?P<estoque>\d{8})\s+'        # Estoque (8 dígitos)
+                r'(?P<custo>\d{8})\s+'          # Custo (8 dígitos)
+                r'(?P<secao>\d{5})$'            # Secao (5 dígitos)
+            )
+
+            data = []
+            for line_num, line in enumerate(lines, 1):
+                line = line.strip()
+                if not line:
+                    continue
+
+                match = pattern.match(line)
+                if not match:
+                    self.logger.warning(f"Linha {line_num} ignorada: formato inválido.")
+                    continue
+
+                try:
+                    data.append({
+                        'GTIN': self._remove_leading_zeros(match.group('gtin')),
+                        'Codigo': self._remove_leading_zeros(match.group('codigo')),
+                        'Descricao': match.group('descricao').strip(),
+                        'Preco': int(match.group('preco')) / 100,  # Converte para float
+                        'Estoque': int(match.group('estoque')),    # Estoque como inteiro
+                        'Custo': int(match.group('custo')) / 100,  # Converte para float
+                        'Secao': self._remove_leading_zeros(match.group('secao')),
+                    })
+                except Exception as e:
+                    self.logger.error(f"Erro ao processar linha {line_num}: {e}")
+
+            if not data:
+                return False, "Nenhum dado válido encontrado."
+
+            # Cria um DataFrame com os dados do TXT
+            df = pd.DataFrame(data)
+
+            # Adiciona a coluna Flag com base no arquivo prod_flag.parquet
+            df = self._add_flag_data(df)
+
+            # Define a ordem das colunas finais
+            columns_order = ['GTIN', 'Codigo', 'Descricao', 'Preco', 'Estoque',
+                             'Custo', 'Secao', 'Flag']
+            df = df[columns_order]
+
+            # Salva os dados no arquivo initial_data.parquet
+            output_path = Path(data_path) / "initial_data.parquet"
+            df.to_parquet(output_path, index=False)
+
+            # Dispara a combinação de dados em uma thread separada
+            threading.Thread(
+                target=self._trigger_data_combination,
+                args=(data_path,),
+                daemon=True
+            ).start()
+
+            return True, f"Arquivo processado com sucesso. {len(data)} itens importados."
+
+        except Exception as e:
+            self.logger.error(f"Erro ao processar TXT: {e}", exc_info=True)
+            return False, f"Erro crítico: {str(e)}"
+
+    def _trigger_data_combination(self, data_path: str) -> bool:
+        """Dispara a combinação de dados com tratamento de erros."""
+        try:
+            combiner = DataCombiner(data_path)
+            success = combiner.combine_data()
+
+            if success and hasattr(self.inventory_manager, 'notify_ui'):
+                self.inventory_manager.notify_ui("data_updated")
+
+            return success
+        except Exception as e:
+            self.logger.error(f"Falha na combinação automática: {e}", exc_info=True)
+            return False
+        
     def _map_excel_columns(self, df: pd.DataFrame) -> pd.DataFrame:
         """Mapeia colunas do Excel para o formato padrão."""
         mapped_df = pd.DataFrame()
@@ -116,7 +216,7 @@ class FileProcessor:
                 mapped_df[standard_col] = None
         
         return mapped_df
-
+    
     def _clean_excel_data(self, df: pd.DataFrame) -> pd.DataFrame:
         """Limpa e formata os dados do Excel."""
         try:
@@ -238,103 +338,3 @@ class FileProcessor:
         except Exception as e:
             self.logger.error(f"Erro ao processar Excel: {e}", exc_info=True)
             return False, f"Erro crítico: {str(e)}"
-
-    def process_initial_txt(self, file_path: str) -> Tuple[bool, str]:
-        """Processa arquivo TXT inicial com todos os tratamentos."""
-        try:
-            data_path = self.inventory_manager.get_active_inventory_data_path()
-            if not data_path:
-                return False, "Nenhum inventário ativo selecionado"
-
-            # Leitura do arquivo
-            encodings_to_try = [self.detect_encoding(file_path), 'utf-8', 'latin-1']
-            lines = []
-
-            for encoding in filter(None, set(encodings_to_try)):
-                try:
-                    with open(file_path, 'r', encoding=encoding) as f:
-                        lines = f.readlines()
-                    break
-                except UnicodeDecodeError:
-                    continue
-
-            if not lines:
-                return False, "Não foi possível ler o arquivo"
-
-            # Expressão regular para parsing
-            pattern = re.compile(
-                r'^(?P<gtin>\d{13})\s+'         # GTIN (13 dígitos)
-                r'(?P<codigo>\d{9})\s+'         # Codigo (9 dígitos)
-                r'(?P<descricao>.+?)\s+'        # Descricao (texto variável)
-                r'(?P<preco>\d{8})\s+'          # Preco (8 dígitos)
-                r'(?P<estoque>\d{8})\s+'        # Estoque (8 dígitos)
-                r'(?P<custo>\d{8})\s+'          # Custo (8 dígitos)
-                r'(?P<secao>\d{5})$'            # Secao (5 dígitos)
-            )
-
-            data = []
-            for line_num, line in enumerate(lines, 1):
-                line = line.strip()
-                if not line:
-                    continue
-
-                match = pattern.match(line)
-                if not match:
-                    self.logger.warning(f"Linha {line_num} ignorada: formato inválido")
-                    continue
-
-                try:
-                    data.append({
-                        'GTIN': self._remove_leading_zeros(match.group('gtin')),
-                        'Codigo': self._remove_leading_zeros(match.group('codigo')),
-                        'Descricao': match.group('descricao').strip(),
-                        'Preco': int(match.group('preco')) / 100,  # Converte para float
-                        'Estoque': int(match.group('estoque')),    # Estoque como inteiro
-                        'Custo': int(match.group('custo')) / 100,  # Converte para float
-                        'Secao': self._remove_leading_zeros(match.group('secao')),
-                    })
-                except Exception as e:
-                    self.logger.error(f"Erro ao processar linha {line_num}: {e}")
-
-            if not data:
-                return False, "Nenhum dado válido encontrado"
-
-            # Cria DataFrame e adiciona flags
-            df = pd.DataFrame(data)
-            df = self._add_flag_data(df)
-
-            # Ordenação das colunas
-            columns_order = ['GTIN', 'Codigo', 'Descricao', 'Preco', 'Estoque', 
-                             'Custo', 'Secao', 'Flag']
-            df = df[columns_order]
-
-            # Salva os dados
-            output_path = Path(data_path) / "initial_data.parquet"
-            df.to_parquet(output_path, index=False)
-
-            # Dispara combinação
-            threading.Thread(
-                target=self._trigger_data_combination,
-                args=(data_path,),
-                daemon=True
-            ).start()
-
-            return True, f"Arquivo processado com sucesso. {len(data)} itens importados."
-
-        except Exception as e:
-            self.logger.error(f"Erro ao processar TXT: {e}", exc_info=True)
-            return False, f"Erro crítico: {str(e)}"
-
-    def _trigger_data_combination(self, data_path: str) -> bool:
-        """Dispara combinação com tratamento de erros."""
-        try:
-            combiner = DataCombiner(data_path)
-            success = combiner.combine_data()
-
-            if success and hasattr(self.inventory_manager, 'notify_ui'):
-                self.inventory_manager.notify_ui("data_updated")
-
-            return success
-        except Exception as e:
-            self.logger.error(f"Falha na combinação automática: {e}", exc_info=True)
-            return False
