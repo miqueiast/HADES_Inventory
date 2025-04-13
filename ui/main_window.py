@@ -215,10 +215,9 @@ class MainWindow(tk.Tk):
                     interval = self.config_manager.get("watcher.interval", 60)
                     self.data_combiner.start_watching(interval)
             
-            self.refresh_data()
+            # Remova esta linha para não carregar automaticamente
+            # self.refresh_data()
             self._start_auto_backup()
-        else:
-            self._update_ui_for_no_inventory()
 
     def _update_ui_for_no_inventory(self):
         """Atualiza a UI quando não há inventário ativo"""
@@ -349,6 +348,18 @@ class MainWindow(tk.Tk):
         """Atualiza a visualização dos dados de forma otimizada"""
         if not self.inventory_manager.active_inventory_path:
             self.update_status("Nenhum inventário ativo selecionado")
+            return
+        
+        data_path = self.inventory_manager.get_active_inventory_data_path()
+        if not data_path:
+            self.update_status("Caminho de dados inválido")
+            return
+        combined_file = Path(data_path) / "combined_data.parquet"
+        
+        #Verificando...
+        if not combined_file.exists():
+            self.update_status("Inventário criado - Adicione os dados Iniciais")
+            self.inventory_view.clear() #Para limpar a visualização de dados
             return
         
         def load_data():

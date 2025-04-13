@@ -1,106 +1,274 @@
 import pandas as pd
-# import os  # Removed as it is not accessed
 from pathlib import Path
 import time
-from typing import Optional  # Removed Dict, List, Tuple as they are not accessed
+from typing import Optional, Dict, List
 import logging
 import threading
 from datetime import datetime
-# import shutil  # Removed as it is not accessed
 
 class DataCombiner:
     def __init__(self, data_folder: str):
         """
-        Gerenciador para combinação de dados de inventário.
+        Gerenciador avançado para combinação de dados de inventário com monitoramento automático.
         
         Args:
-            data_folder: Caminho COMPLETO para a pasta 'dados' do inventário
+            data_folder: Caminho completo para a pasta de dados do inventário
                         (ex: 'data/nome_inventario/dados')
         """
-        self.data_folder = Path(data_folder)
+        self.data_folder = Path(data_folder).absolute()
         self.watching = False
         self.watcher_thread = None
         self.combined_file = "combined_data.parquet"
         self.backup_file = "combined_data.bak"
         self.temp_file = "combined_data.tmp"
-        self.logger = logging.getLogger(f"{__name__}.DataCombiner")
-        self.lock = threading.Lock()
+        self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
+        self.lock = threading.RLock()  # Usando RLock para operações aninhadas
         self.last_processed = None
+        self.last_count_mtime = 0
         
-        # Configurações
-        self.min_interval = 5
+        # Configurações otimizadas
+        self.min_interval = 2  # Intervalo mínimo entre verificações (segundos)
         self.max_retries = 3
         self.retry_delay = 1
+        self.file_check_interval = 2  # Verificação de modificação de arquivos
         
-        # Garante estrutura
-        self.data_folder.mkdir(parents=True, exist_ok=True)
+        # Colunas padrão
+        self.initial_columns = [
+            'GTIN', 'Codigo', 'Descricao', 'Preco', 'Estoque', 
+            'Custo', 'Secao', 'Flag'
+        ]
+        self.count_columns = [
+            'COD_BARRAS', 'QNT_CONTADA', 'OPERADOR', 'ENDERECO'
+        ]
+        self.final_columns = [
+            'GTIN', 'Codigo', 'Descricao', 'Preco', 'Estoque', 'Custo',
+            'Secao', 'Flag', 'QNT_CONTADA', 'DIFERENCA', 'OPERADOR', 'ENDERECO'
+        ]
+        
+        # Garante estrutura de pastas
+        self._ensure_data_folder()
         
         self.logger.info(f"DataCombiner configurado para: {self.data_folder}")
 
-    def _ensure_data_folder(self):
+    def _ensure_data_folder(self) -> None:
         """Garante que a pasta de dados existe e é acessível"""
         try:
-            pass  # Add your logic here
-        except Exception as e:
-            self.logger.error(f"Erro no bloco try: {e}")
-        except Exception as e:
-            self.logger.error(f"Erro no bloco try: {e}")
             self.data_folder.mkdir(parents=True, exist_ok=True)
-            # Testa escrita na pasta
-            test_file = self.data_folder / ".access_test"
+            # Teste de escrita
+            test_file = self.data_folder / ".tmp_test"
             test_file.touch()
             test_file.unlink()
         except Exception as e:
             self.logger.critical(f"Falha ao acessar pasta de dados: {e}")
-            raise
+            raise PermissionError(f"Não foi possível acessar a pasta {self.data_folder}") from e
+
+    def _safe_read_parquet(self, path: Path, default_cols: List[str]) -> Optional[pd.DataFrame]:
+        """Leitura segura de arquivos parquet com tratamento de erros"""
+        for attempt in range(self.max_retries):
+            try:
+                if not path.exists():
+                    return pd.DataFrame(columns=default_cols)
+                
+                df = pd.read_parquet(path, engine='pyarrow')
+                return df.copy()  # Retorna cópia explícita para evitar warnings
+                
+            except Exception as e:
+                if attempt == self.max_retries - 1:
+                    self.logger.error(f"Falha ao ler {path.name} após {self.max_retries} tentativas: {e}")
+                    return None
+                time.sleep(self.retry_delay)
+
+    def _load_initial_data(self) -> Optional[pd.DataFrame]:
+        """Carrega e valida os dados iniciais com tratamento robusto"""
+        initial_path = self.data_folder / "initial_data.parquet"
+        df = self._safe_read_parquet(initial_path, self.initial_columns)
+        
+        if df is None:
+            return None
+            
+        # Adiciona colunas faltantes com valores padrão
+        for col in self.initial_columns:
+            if col not in df.columns:
+                default = 0 if col in ['Preco', 'Estoque', 'Custo'] else ''
+                df[col] = default
+                self.logger.warning(f"Coluna '{col}' ausente - preenchida com valor padrão: {default}")
+        
+        # Processamento seguro dos dados
+        try:
+            df['GTIN'] = df['GTIN'].astype(str).str.strip().str.zfill(13)
+            df['Codigo'] = df['Codigo'].astype(str).str.strip()
+            
+            # Conversão segura de valores numéricos
+            num_cols = ['Preco', 'Estoque', 'Custo']
+            for col in num_cols:
+                if col in df.columns:
+                    df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
+            
+            # Validação de GTIN
+            invalid_gtins = df[~df['GTIN'].str.match(r'^\d{13}$')]
+            if not invalid_gtins.empty:
+                self.logger.warning(f"GTINs inválidos encontrados: {len(invalid_gtins)}")
+            
+            self.logger.info(f"Dados iniciais carregados. Itens: {len(df)}")
+            return df
+            
+        except Exception as e:
+            self.logger.error(f"Erro ao processar dados iniciais: {e}")
+            return None
+
+    def _process_count_file(self) -> Optional[pd.DataFrame]:
+        """Processa o arquivo de contagem com verificação de modificação"""
+        count_path = self.data_folder / "dados123.parquet"
+        
+        try:
+            # Verifica se o arquivo foi modificado
+            current_mtime = count_path.stat().st_mtime if count_path.exists() else 0
+            if current_mtime <= self.last_count_mtime:
+                return None
+                
+            self.last_count_mtime = current_mtime
+            
+            df = self._safe_read_parquet(count_path, self.count_columns)
+            if df is None or df.empty:
+                return pd.DataFrame(columns=['GTIN', 'QNT_CONTADA', 'OPERADOR', 'ENDERECO'])
+            
+            # Processamento robusto
+            df = df.copy()
+            df['COD_BARRAS'] = (
+                df['COD_BARRAS']
+                .astype(str)
+                .str.strip()
+                .str.replace(r'\D+', '', regex=True)
+                .str.zfill(13)
+            )
+            
+            df['QNT_CONTADA'] = pd.to_numeric(df['QNT_CONTADA'], errors='coerce').fillna(0).astype(int)
+            
+            # Agregação dinâmica
+            agg_rules: Dict[str, any] = {'QNT_CONTADA': 'sum'}
+            for col in ['OPERADOR', 'ENDERECO']:
+                if col in df.columns:
+                    df[col] = df[col].astype(str).str.strip().replace({'nan': '', 'None': ''})
+                    agg_rules[col] = lambda x: '; '.join(filter(None, set(x)))
+            
+            grouped = (
+                df.groupby('COD_BARRAS', as_index=False)
+                .agg(agg_rules)
+                .rename(columns={'COD_BARRAS': 'GTIN'})
+            )
+            
+            self.logger.info(
+                f"Contagem processada. Itens únicos: {len(grouped)}, "
+                f"Total contado: {grouped['QNT_CONTADA'].sum():,}"
+            )
+            return grouped
+            
+        except Exception as e:
+            self.logger.error(f"Erro ao processar contagem: {e}")
+            return None
+
+    def _merge_data(self, df_initial: pd.DataFrame, df_counts: Optional[pd.DataFrame]) -> Optional[pd.DataFrame]:
+        """Combina dados iniciais com contagens de forma segura"""
+        try:
+            if df_initial.empty:
+                self.logger.error("Dados iniciais vazios - nada para combinar")
+                return None
+                
+            # Garante colunas extras mesmo sem contagem
+            result = df_initial.copy()
+            result['QNT_CONTADA'] = 0
+            result['DIFERENCA'] = -result['Estoque']  # Diferença inicial = -Estoque
+            result['OPERADOR'] = ''
+            result['ENDERECO'] = ''
+            
+            if df_counts is not None and not df_counts.empty:
+                # Merge seguro mantendo todos os dados iniciais
+                result = result.merge(
+                    df_counts,
+                    how='left',
+                    on='GTIN',
+                    suffixes=('', '_y')
+                )
+                
+                # Consolida colunas duplicadas
+                for col in ['QNT_CONTADA', 'OPERADOR', 'ENDERECO']:
+                    if f"{col}_y" in result.columns:
+                        result[col] = result[f"{col}_y"].fillna(result[col])
+                        result.drop(f"{col}_y", axis=1, inplace=True)
+                
+                # Calcula diferença real
+                result['DIFERENCA'] = result['QNT_CONTADA'] - result['Estoque']
+            
+            return result
+            
+        except Exception as e:
+            self.logger.error(f"Erro na combinação: {e}")
+            return None
+
+    def _prepare_final_data(self, df: pd.DataFrame) -> Optional[pd.DataFrame]:
+        """Prepara os dados finais com validação completa"""
+        try:
+            # Garante todas as colunas necessárias
+            for col in self.final_columns:
+                if col not in df.columns:
+                    default = '' if col in ['Flag', 'OPERADOR', 'ENDERECO'] else 0
+                    df[col] = default
+                    self.logger.warning(f"Coluna '{col}' ausente - preenchida com: {default}")
+            
+            # Ordenação profissional
+            sort_key = ['DIFERENCA', 'GTIN'] if 'DIFERENCA' in df.columns else ['GTIN']
+            df = df.sort_values(
+                sort_key,
+                ascending=[False, True],
+                na_position='last',
+                ignore_index=True
+            )
+            
+            # Conversão final de tipos
+            num_cols = ['Preco', 'Custo', 'Estoque', 'QNT_CONTADA', 'DIFERENCA']
+            for col in num_cols:
+                if col in df.columns:
+                    df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
+            
+            # Seleciona apenas colunas desejadas
+            return df[self.final_columns].copy()
+            
+        except Exception as e:
+            self.logger.error(f"Erro ao preparar dados finais: {e}")
+            return None
 
     def combine_data(self) -> bool:
-        """
-        Combina dados iniciais com arquivo de contagem de forma robusta.
-        
-        Returns:
-            bool: True se a combinação foi bem-sucedida, False caso contrário
-        """
+        """Executa todo o fluxo de combinação de dados com tratamento robusto"""
         with self.lock:
+            self.logger.info("Iniciando combinação de dados...")
+            start_time = time.time()
+            
             try:
-                self.logger.info("Iniciando combinação de dados...")
-                start_time = time.time()
-                
-                # 1. Carrega dados iniciais
+                # Carrega e processa dados
                 df_initial = self._load_initial_data()
                 if df_initial is None:
-                    self.logger.error("Falha ao carregar dados iniciais")
                     return False
-                
-                if df_initial.empty:
-                    self.logger.error("Dados iniciais estão vazios")
-                    return False
-                
-                # 2. Processa arquivo de contagem
+                    
                 df_counts = self._process_count_file()
-                if df_counts is None:
-                    self.logger.error("Falha ao processar arquivo de contagem")
-                    return False
                 
-                # 3. Combina os dados
+                # Combina dados
                 merged = self._merge_data(df_initial, df_counts)
-                if merged is None or merged.empty:
-                    self.logger.error("Falha ao combinar dados - resultado vazio")
+                if merged is None:
                     return False
                 
-                # 4. Prepara colunas finais
+                # Prepara e salva resultado
                 final_df = self._prepare_final_data(merged)
                 if final_df is None:
                     return False
                 
-                # 5. Salva o resultado
                 success = self._save_combined_data(final_df)
                 
                 if success:
-                    process_time = time.time() - start_time
+                    elapsed = time.time() - start_time
                     self.logger.info(
-                        f"Combinação concluída com sucesso em {process_time:.2f}s. "
-                        f"Total de itens: {len(final_df)}"
+                        f"Combinação concluída. Itens: {len(final_df):,} | "
+                        f"Tempo: {elapsed:.2f}s | "
+                        f"Diferença total: {final_df['DIFERENCA'].sum():+,}"
                     )
                     self.last_processed = datetime.now()
                     return True
@@ -108,333 +276,97 @@ class DataCombiner:
                 return False
                 
             except Exception as e:
-                self.logger.error(f"Falha crítica na combinação de dados: {e}", exc_info=True)
+                self.logger.error(f"Falha na combinação: {e}", exc_info=True)
                 return False
             finally:
-                self.logger.info("Finalizado processo de combinação de dados")
-
-    def _load_initial_data(self) -> Optional[pd.DataFrame]:
-        """Carrega os dados iniciais (inventário) da pasta 'dados'"""
-        initial_path = self.data_folder / "initial_data.parquet"
-        
-        if not initial_path.exists():
-            self.logger.error(f"Arquivo inicial não encontrado: {initial_path}")
-            return None
-            
-        for attempt in range(self.max_retries):
-            try:
-                # Carrega o arquivo com engine='pyarrow' para melhor performance
-                df = pd.read_parquet(initial_path, engine='pyarrow')
-                
-                # Verifica colunas obrigatórias
-                required_cols = ['GTIN', 'Codigo', 'Descricao', 'Estoque']
-                missing_cols = [col for col in required_cols if col not in df.columns]
-                
-                if missing_cols:
-                    self.logger.error(f"Colunas obrigatórias ausentes: {missing_cols}")
-                    return None
-                
-                # Cria cópia explícita para evitar warnings
-                df = df.copy()
-                
-                # Conversão segura de tipos de dados
-                df['GTIN'] = df['GTIN'].astype(str).str.strip().str.zfill(13)
-                df['Codigo'] = df['Codigo'].astype(str).str.strip()
-                df['Estoque'] = pd.to_numeric(df['Estoque'], errors='coerce').fillna(0).astype(int)
-                
-                # Verifica dados inválidos
-                if df['GTIN'].str.len().ne(13).any():
-                    invalid_gtins = df[df['GTIN'].str.len() != 13]['GTIN'].unique()
-                    self.logger.warning(f"GTINs com formato inválido: {invalid_gtins[:5]}")
-                
-                self.logger.info(f"Dados iniciais carregados. Itens: {len(df)}")
-                return df
-                
-            except Exception as e:
-                if attempt == self.max_retries - 1:
-                    self.logger.error(
-                        f"Falha ao carregar dados iniciais após {self.max_retries} tentativas: {e}",
-                        exc_info=True
-                    )
-                    return None
-                
-                time.sleep(self.retry_delay)
-
-    def _process_count_file(self) -> Optional[pd.DataFrame]:
-        """Processa o arquivo de contagem (dados123.parquet) da pasta 'dados'"""
-        count_path = self.data_folder / "dados123.parquet"
-        
-        if not count_path.exists():
-            self.logger.warning("Arquivo de contagem não encontrado - usando DataFrame vazio")
-            return pd.DataFrame(columns=['COD_BARRAS', 'QNT_CONTADA', 'OPERADOR', 'ENDERECO'])
-        
-        for attempt in range(self.max_retries):
-            try:
-                # Carrega com engine específica para evitar warnings
-                df = pd.read_parquet(count_path, engine='pyarrow')
-                
-                if df.empty:
-                    self.logger.warning("Arquivo de contagem está vazio")
-                    return df
-                
-                # Verifica colunas mínimas necessárias
-                if not {'COD_BARRAS', 'QNT_CONTADA'}.issubset(df.columns):
-                    self.logger.error(
-                        "Arquivo de contagem não contém colunas obrigatórias (COD_BARRAS, QNT_CONTADA)"
-                    )
-                    return pd.DataFrame(columns=['COD_BARRAS', 'QNT_CONTADA', 'OPERADOR', 'ENDERECO'])
-                
-                # Cria cópia explícita para manipulação segura
-                df['COD_BARRAS'] = (
-                    df['COD_BARRAS']
-                    .astype(str)
-                    .str.strip()
-                    .str.replace(r'\D+', '', regex=True)  # Remove não-dígitos
-                    .str.zfill(13)
-                )
-                
-                # Pré-processamento robusto
-                df['COD_BARRAS'] = (
-                    df['COD_BARRAS']
-                    .astype(str)
-                    .str.strip()
-                    .str.replace(r'\D+', '', regex=True)  # Remove não-dígitos
-                    .str.zfill(13)
-                )
-                
-                df['QNT_CONTADA'] = (
-                    pd.to_numeric(df['QNT_CONTADA'], errors='coerce')
-                    .fillna(0)
-                    .astype(int)
-                )
-                
-                # Configura agregação dinâmica
-                agg_rules = {'QNT_CONTADA': 'sum'}
-                
-                # Adiciona colunas opcionais se existirem
-                text_cols = ['OPERADOR', 'ENDERECO']
-                for col in text_cols:
-                    if col in df.columns:
-                        df[col] = df[col].astype(str).str.strip().replace({'nan': '', 'None': ''})
-                        agg_rules[col] = lambda x: '; '.join(filter(None, set(x)))
-                
-                # Agrupa por código de barras
-                grouped = (
-                    df.groupby('COD_BARRAS', as_index=False)
-                    .agg(agg_rules)
-                    .rename(columns={'COD_BARRAS': 'GTIN'})
-                )
-                
-                self.logger.info(
-                    f"Arquivo de contagem processado. "
-                    f"Itens únicos: {len(grouped)}, "
-                    f"Total contado: {grouped['QNT_CONTADA'].sum()}"
-                )
-                return grouped
-                
-            except Exception as e:
-                if attempt == self.max_retries - 1:
-                    self.logger.error(
-                        f"Falha ao processar arquivo de contagem após {self.max_retries} tentativas: {e}",
-                        exc_info=True
-                    )
-                    return pd.DataFrame(columns=['COD_BARRAS', 'QNT_CONTADA', 'OPERADOR', 'ENDERECO'])
-                
-                time.sleep(self.retry_delay)
-
-    def _merge_data(self, df_initial: pd.DataFrame, df_counts: pd.DataFrame) -> Optional[pd.DataFrame]:
-        """Combina dados iniciais com contagens de forma segura"""
-        try:
-            if df_initial.empty:
-                self.logger.error("Dados iniciais vazios - não é possível combinar")
-                return None
-                
-            # Se não houver dados de contagem, cria DataFrame com estrutura básica
-            if df_counts.empty:
-                self.logger.warning("Sem dados de contagem - usando valores padrão")
-                df_counts = pd.DataFrame(columns=['GTIN', 'QNT_CONTADA'])
-            
-            # Merge seguro (left join) garantindo tipos consistentes
-            df_initial['GTIN'] = df_initial['GTIN'].astype(str)
-            df_counts['GTIN'] = df_counts['GTIN'].astype(str)
-            
-            merged = pd.merge(
-                df_initial,
-                df_counts,
-                how='left',
-                on='GTIN',
-                suffixes=('', '_count')
-            )
-            
-            # Pós-processamento
-            return self._post_process_merged_data(merged)
-            
-        except Exception as e:
-            self.logger.error(f"Erro ao combinar dados: {e}", exc_info=True)
-            return None
-
-    def _post_process_merged_data(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Realiza pós-processamento dos dados combinados"""
-        # Cria cópia explícita para evitar warnings
-        df = df.copy()
-        
-        # Preenche valores ausentes de forma segura
-        df['QNT_CONTADA'] = df['QNT_CONTADA'].fillna(0).astype(int)
-        
-        # Colunas opcionais
-        for col in ['OPERADOR', 'ENDERECO']:
-            if col in df.columns:
-                df[col] = df[col].fillna('').astype(str)
-        
-        # Calcula diferenças
-        if 'Estoque' in df.columns and 'QNT_CONTADA' in df.columns:
-            df['DIFERENCA'] = df['QNT_CONTADA'] - df['Estoque'].astype(int)
-        
-        # Ordenação segura
-        sort_col = 'DIFERENCA' if 'DIFERENCA' in df.columns else 'GTIN'
-        try:
-            return df.sort_values(
-                sort_col,
-                ascending=False if sort_col == 'DIFERENCA' else True,
-                na_position='last',
-                ignore_index=True
-            )
-        except Exception as e:
-            self.logger.warning(f"Erro ao ordenar por {sort_col}: {e}")
-            return df
-
-    def _prepare_final_data(self, df: pd.DataFrame) -> Optional[pd.DataFrame]:
-        """Prepara os dados finais com colunas padronizadas"""
-        try:
-            # Colunas esperadas no resultado final
-            final_columns = [
-                'GTIN', 'Codigo', 'Descricao', 'Preco', 'Custo', 'Estoque',
-                'QNT_CONTADA', 'Flag', 'DIFERENCA', 'OPERADOR', 'ENDERECO'
-            ]
-            
-            # Garante que todas as colunas existam
-            for col in final_columns:
-                if col not in df.columns:
-                    default_value = '' if col in ['Flag', 'OPERADOR', 'ENDERECO'] else 0
-                    df[col] = default_value
-                    self.logger.warning(f"Coluna {col} não encontrada - preenchida com {default_value}")
-            
-            # Seleciona e ordena as colunas
-            df = df[final_columns].copy()
-            
-            # Conversão final de tipos
-            numeric_cols = ['Preco', 'Custo', 'Estoque', 'QNT_CONTADA', 'DIFERENCA']
-            for col in numeric_cols:
-                if col in df.columns:
-                    df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
-            
-            return df
-            
-        except Exception as e:
-            self.logger.error(f"Erro ao preparar dados finais: {e}", exc_info=True)
-            return None
+                self.logger.debug("Processo de combinação finalizado")
 
     def _save_combined_data(self, df: pd.DataFrame) -> bool:
-        """Salva os dados combinados com substituição atômica"""
+        """Salva os dados com substituição atômica e backup seguro"""
         temp_path = self.data_folder / self.temp_file
-        output_path = self.data_folder / self.combined_file
+        final_path = self.data_folder / self.combined_file
         backup_path = self.data_folder / self.backup_file
         
         try:
-            # 1. Salva em arquivo temporário
+            # Salva em arquivo temporário
             df.to_parquet(temp_path, index=False, engine='pyarrow')
             
-            # 2. Cria backup se o arquivo final já existir
-            if output_path.exists():
-                try:
-                    backup_path.unlink(missing_ok=True)  # Remove backup antigo se existir
-                    output_path.rename(backup_path)
-                    self.logger.info(f"Backup criado: {backup_path}")
-                except Exception as e:
-                    self.logger.error(f"Falha ao criar backup: {e}")
-                    return False
+            # Backup atômico
+            if final_path.exists():
+                backup_path.unlink(missing_ok=True)
+                final_path.rename(backup_path)
             
-            # 3. Move o arquivo temporário para o final
-            temp_path.rename(output_path)
-            self.logger.info(f"Dados combinados salvos em: {output_path}")
-            
+            # Commit final
+            temp_path.rename(final_path)
+            self.logger.info(f"Dados salvos em {final_path}")
             return True
             
         except Exception as e:
-            self.logger.error(f"Erro ao salvar dados combinados: {e}", exc_info=True)
+            self.logger.error(f"Erro ao salvar dados: {e}")
             
-            # Tenta restaurar backup em caso de falha
-            if backup_path.exists() and not output_path.exists():
-                try:
-                    backup_path.rename(output_path)
-                    self.logger.info("Backup restaurado com sucesso após falha")
-                except Exception as e:
-                    self.logger.error(f"Falha ao restaurar backup: {e}")
-            
-            # Limpa arquivo temporário se existir
+            # Recovery attempt
             temp_path.unlink(missing_ok=True)
+            if not final_path.exists() and backup_path.exists():
+                try:
+                    backup_path.rename(final_path)
+                    self.logger.warning("Backup restaurado após falha")
+                except Exception as restore_error:
+                    self.logger.critical(f"Falha ao restaurar backup: {restore_error}")
+            
             return False
 
-    def start_watching(self, interval: int = 60) -> None:
-        """
-        Inicia o monitoramento automático da pasta de dados.
-        
-        Args:
-            interval (int): Intervalo entre verificações em segundos
-        """
+    def start_watching(self, interval: int = 2) -> None:
+        """Inicia monitoramento contínuo com intervalo configurável"""
         if self.watching:
             self.logger.warning("Monitoramento já está ativo")
             return
             
         self.watching = True
-        self.logger.info(f"Iniciando monitoramento em {self.data_folder} (intervalo: {interval}s)")
+        self.logger.info(f"Iniciando monitoramento (intervalo: {interval}s)")
         
-        def watcher_loop():
-            last_check = 0
+        def watcher():
             while self.watching:
                 try:
-                    current_time = time.time()
-                    
-                    # Verifica se é hora de processar
-                    if current_time - last_check >= interval:
-                        self.combine_data()
-                        last_check = current_time
-                    
-                    time.sleep(self.min_interval)
-                    
+                    self.combine_data()
+                    time.sleep(interval)
                 except Exception as e:
-                    self.logger.error(f"Erro no loop de monitoramento: {e}")
-                    time.sleep(interval)  # Espera antes de tentar novamente
+                    self.logger.error(f"Erro no watcher: {e}")
+                    time.sleep(min(30, interval * 2))  # Backoff exponencial
         
         self.watcher_thread = threading.Thread(
-            target=watcher_loop,
+            target=watcher,
             name="DataWatcher",
             daemon=True
         )
         self.watcher_thread.start()
 
     def stop_watching(self) -> None:
-        """Para o monitoramento automático da pasta"""
+        """Para o monitoramento de forma segura"""
         if not self.watching:
             return
             
         self.watching = False
-        self.logger.info("Parando monitoramento...")
-        
         if self.watcher_thread:
             self.watcher_thread.join(timeout=5)
-            
-        self.logger.info("Monitoramento parado com sucesso")
+        self.logger.info("Monitoramento parado")
 
     def get_last_processed_time(self) -> Optional[datetime]:
-        self.stop_watching()
-        """Retorna o horário da última combinação bem-sucedida"""
+        """Retorna o último horário de processamento bem-sucedido"""
         return self.last_processed
 
     def get_data_folder(self) -> Path:
-        """Retorna o caminho da pasta de dados sendo monitorada"""
+        """Retorna o caminho absoluto da pasta de dados"""
         return self.data_folder
 
     def __del__(self):
-        """Destruidor - garante que o watcher seja parado"""
+        """Garante limpeza adequada"""
+        self.stop_watching()
+        self.logger.info("Instância DataCombiner finalizada")
+
+    def __enter__(self):
+        """Suporte para context manager"""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Garante parada do watcher ao sair do contexto"""
         self.stop_watching()

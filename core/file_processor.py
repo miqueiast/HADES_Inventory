@@ -109,24 +109,9 @@ class FileProcessor:
             df['Flag'] = ''
             return df
 
-    def _trigger_data_combination(self, data_path: str) -> bool:
-        """Dispara a combinação de dados com tratamento de erros."""
-        try:
-            combiner = DataCombiner(data_path)
-            success = combiner.combine_data()
-
-            if success and hasattr(self.inventory_manager, 'notify_ui'):
-                self.inventory_manager.notify_ui("data_updated")
-
-            return success
-        except Exception as e:
-            self.logger.error(f"Falha na combinação automática: {e}", exc_info=True)
-            return False
-
     def process_initial_txt(self, file_path: str) -> Tuple[bool, str]:
-        """Processa o arquivo TXT inicial."""
+        """Processa o arquivo TXT inicial e salva como parquet"""
         try:
-            ## CORREÇÃO: Usar get_active_inventory_data_path() que já inclui /dados
             data_path = Path(self.inventory_manager.get_active_inventory_data_path())
             if not data_path:
                 return False, "Nenhum inventário ativo selecionado."
@@ -194,29 +179,27 @@ class FileProcessor:
                             'Custo', 'Secao', 'Flag']
             df = df[columns_order]
 
+            # Salva os dados processados
             output_path = data_path / "initial_data.parquet"
             df.to_parquet(output_path, index=False)
-
+            
+            # Dispara a combinação automática
+            combiner = DataCombiner(data_path)
+            combiner.combine_data()
+            
             return True, f"Arquivo processado com sucesso. {len(data)} itens importados."
-
         except Exception as e:
             self.logger.error(f"Erro ao processar TXT: {e}", exc_info=True)
             return False, f"Erro crítico: {str(e)}"
     
     def _trigger_data_combination(self, data_path: str) -> bool:
-        """Dispara a combinação de dados com tratamento de erros."""
-        try:
-            combiner = DataCombiner(data_path)
-            success = combiner.combine_data()
-
-            if success and hasattr(self.inventory_manager, 'notify_ui'):
-                self.inventory_manager.notify_ui("data_updated")
-
-            return success
-        except Exception as e:
-            self.logger.error(f"Falha na combinação automática: {e}", exc_info=True)
-            return False
-        
+            """Dispara a combinação de dados"""
+            try:
+                return DataCombiner(data_path).combine_data()
+            except Exception as e:
+                self.logger.error(f"Falha na combinação automática: {e}", exc_info=True)
+                return False
+                
     def _map_excel_columns(self, df: pd.DataFrame) -> pd.DataFrame:
         """Mapeia as colunas EXATAS do seu Excel para o formato interno"""
         mapped_df = pd.DataFrame()
@@ -284,9 +267,8 @@ class FileProcessor:
             raise
 
     def process_excel(self, file_path: str) -> Tuple[bool, str]:
-        """Processa arquivo Excel específico para contagem."""
+        """Processa arquivo Excel de contagem"""
         try:
-            # Usa o caminho completo que já inclui /dados
             data_path = Path(self.inventory_manager.get_active_inventory_data_path())
             if not data_path:
                 return False, "Nenhum inventário ativo selecionado"
@@ -344,6 +326,11 @@ class FileProcessor:
             grouped_df = df.groupby('COD_BARRAS', as_index=False).agg(agg_rules)
 
             output_path = data_path / "dados123.parquet"
+            
+            # Após salvar o dados123.parquet, adicione:
+            combiner = DataCombiner(data_path)
+            if not combiner.combine_data():
+                self.logger.warning("Combinação automática falhou após processar Excel")
 
             if output_path.exists():
                 existing_df = pd.read_parquet(output_path)

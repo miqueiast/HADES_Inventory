@@ -37,8 +37,7 @@ class InventoryManager:
         try:
             # Remove caracteres inválidos do nome
             safe_name = "".join(c for c in inventory_name if c.isalnum() or c in (' ', '_')).rstrip()
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            folder_name = f"{safe_name}_{store}_{timestamp}"
+            folder_name = f"{safe_name}_{store}"
             inventory_path = os.path.join(self.data_folder, folder_name)
             
             if os.path.exists(inventory_path):
