@@ -1,8 +1,8 @@
-#main.py6
-import tkinter as tk          # Para a interface gráfica
-import logging               # Para registro de logs
-from ui.main_window import MainWindow  # Importa sua classe principal de janela
-from utils.logger import setup_logger  # Importa sua configuração de logger
+#main.py
+import tkinter as tk
+import logging 
+from ui.main_window import MainWindow
+from utils.logger import setup_logger
 
 def main():
     """
