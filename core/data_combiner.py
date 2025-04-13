@@ -25,6 +25,7 @@ class DataCombiner:
         self.lock = threading.RLock()  # Usando RLock para operações aninhadas
         self.last_processed = None
         self.last_count_mtime = 0
+        self._update_callback = None
         
         # Configurações otimizadas
         self.min_interval = 2  # Intervalo mínimo entre verificações (segundos)
@@ -50,6 +51,10 @@ class DataCombiner:
         
         self.logger.info(f"DataCombiner configurado para: {self.data_folder}")
 
+    def set_update_callback(self, callback: callable):
+        """Define uma função de callback para ser chamada quando os dados são atualizados"""
+        self._update_callback = callback
+    
     def _ensure_data_folder(self) -> None:
         """Garante que a pasta de dados existe e é acessível"""
         try:
@@ -263,17 +268,12 @@ class DataCombiner:
                 
                 success = self._save_combined_data(final_df)
                 
-                if success:
-                    elapsed = time.time() - start_time
-                    self.logger.info(
-                        f"Combinação concluída. Itens: {len(final_df):,} | "
-                        f"Tempo: {elapsed:.2f}s | "
-                        f"Diferença total: {final_df['DIFERENCA'].sum():+,}"
-                    )
-                    self.last_processed = datetime.now()
-                    return True
-                
-                return False
+                if success and self._update_callback is not None:
+                    try:
+                        self._update_callback()
+                    except Exception as e:
+                        self.logger.error(f"Erro no callback de atualização: {e}")
+                return success
                 
             except Exception as e:
                 self.logger.error(f"Falha na combinação: {e}", exc_info=True)

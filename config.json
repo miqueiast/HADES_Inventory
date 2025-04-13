@@ -1,0 +1,21 @@
+{
+    "ui": {
+        "theme": "clam",
+        "font": "Arial 10",
+        "max_rows": 1000,
+        "row_step": 100
+    },
+    "colors": {
+        "positive_diff": "#ffdddd",
+        "negative_diff": "#ffffcc",
+        "text_positive": "#000000",
+        "text_negative": "#000000"
+    },
+    "watcher": {
+        "enabled": true,
+        "interval": 60
+    },
+    "inventory": {
+        "active_path": "data\\CBS_News"
+    }
+}

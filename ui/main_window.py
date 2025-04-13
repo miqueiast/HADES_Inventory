@@ -1,10 +1,12 @@
+from compileall import compile_file
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 from pathlib import Path
-from typing import Optional, Dict, Tuple
+from typing import Optional, Dict, Self, Tuple
 import logging
 import threading
 import os
+from venv import logger
 import pandas as pd
 from datetime import datetime
 import time
@@ -197,27 +199,40 @@ class MainWindow(tk.Tk):
     def _update_ui_for_active_inventory(self):
         """Atualiza a UI quando um inventário está ativo"""
         info = self.inventory_manager.get_active_inventory_info()
-        if info:
-            display_text = f"{info['nome']} - {info['loja']} ({info['criado_em'][:10]})"
-            self.inventory_var.set(display_text)
-            self.inventory_info.config(
-                text=f"Loja: {info['loja']} | Criado em: {info['criado_em'][:16]}",
-                foreground="black"
-            )
+        if not info:
+            return
             
-            for btn in ["load", "import", "refresh", "backup"]:
-                self.buttons[btn].config(state=tk.NORMAL)
+        display_text = f"{info['nome']} - {info['loja']} ({info['criado_em'][:10]})"
+        self.inventory_var.set(display_text)
+        self.inventory_info.config(
+            text=f"Loja: {info['loja']} | Criado em: {info['criado_em'][:16]}",
+            foreground="black"
+        )
+        
+        # Ativa botões
+        for btn in ["load", "import", "refresh", "backup"]:
+            self.buttons[btn].config(state=tk.NORMAL)
+        
+        # Configura DataCombiner
+        data_path = self.inventory_manager.get_active_inventory_data_path()
+        if data_path:
+            self.data_combiner = DataCombiner(data_path)
             
-            data_path = self.inventory_manager.get_active_inventory_data_path()
-            if data_path:
-                self.data_combiner = DataCombiner(data_path)
-                if self.watcher_active:
-                    interval = self.config_manager.get("watcher.interval", 60)
-                    self.data_combiner.start_watching(interval)
+            # Verifica se o método existe antes de chamar
+            if hasattr(self.data_combiner, 'set_update_callback'):
+                def update_callback():
+                    combined_path = Path(data_path) / "combined_data.parquet"
+                    if combined_path.exists():
+                        self.inventory_view.refresh_from_file(combined_path)
+                        self._update_display_stats()
+                
+                self.data_combiner.set_update_callback(update_callback)
             
-            # Remova esta linha para não carregar automaticamente
-            # self.refresh_data()
-            self._start_auto_backup()
+            if self.watcher_active:
+                interval = self.config_manager.get("watcher.interval", 2)
+                self.data_combiner.start_watching(interval)
+        
+        self._start_auto_backup()
 
     def _update_ui_for_no_inventory(self):
         """Atualiza a UI quando não há inventário ativo"""
@@ -227,6 +242,20 @@ class MainWindow(tk.Tk):
         )
         for btn in ["load", "import", "refresh", "backup"]:
             self.buttons[btn].config(state=tk.DISABLED)
+            
+    def _setup_data_combiner(self):
+        """Configura o DataCombiner com callbacks para atualizações automáticas"""
+        if not hasattr(self, 'data_combiner') or not self.data_combiner:
+            return
+        
+        def on_data_updated():
+            data_path = self.inventory_manager.get_active_inventory_data_path()
+            if data_path:
+                combined_file = Path(data_path) / "combined_data.parquet"
+                self.inventory_view.refresh_from_file(combined_file)
+                self._update_display_stats()
+        
+        self.data_combiner.set_update_callback(on_data_updated)
 
     def create_inventory(self):
         """Cria um novo inventário"""
@@ -354,13 +383,64 @@ class MainWindow(tk.Tk):
         if not data_path:
             self.update_status("Caminho de dados inválido")
             return
+            
         combined_file = Path(data_path) / "combined_data.parquet"
         
-        #Verificando...
         if not combined_file.exists():
-            self.update_status("Inventário criado - Adicione os dados Iniciais")
-            self.inventory_view.clear() #Para limpar a visualização de dados
+            self.update_status("Inventário criado - Adicione os dados iniciais")
+            self.inventory_view.clear()
             return
+        
+        # Usando lambda para capturar self automaticamente
+        threading.Thread(
+            target=lambda: self._refresh_data_task(combined_file),
+            daemon=True
+        ).start()
+
+    def _refresh_data_task(self, file_path: Path):
+        """Tarefa de carregamento de dados em background"""
+        try:
+            success = self.inventory_view.refresh_from_file(file_path)
+            self.after(0, self._update_display_stats if success else 
+                    lambda: self.update_status("Falha ao carregar dados"))
+        except Exception as e:
+            self.logger.error(f"Erro ao atualizar dados: {e}", exc_info=True)
+            self.after(0, lambda: self.update_status(f"Erro: {str(e)}", error=True))
+
+    def _update_display_stats(self):
+        """Atualiza as estatísticas de exibição na barra de status"""
+        try:
+            current_data = self.inventory_view.current_data
+            
+            # Verificação segura dos dados
+            if current_data is None:
+                self.update_status("Nenhum dado carregado")
+                return
+            elif not isinstance(current_data, pd.DataFrame):
+                self.update_status(f"Formato de dados inválido: {type(current_data)}")
+                return
+            elif current_data.empty:
+                self.update_status("Planilha vazia - nada para exibir")
+                return
+                
+            # Processamento dos dados (sua lógica original)
+            df = current_data
+            if 'DIFERENCA' in df.columns:
+                pos_diff = (df['DIFERENCA'] > 0).sum()
+                neg_diff = (df['DIFERENCA'] < 0).sum()
+                status = (f"Dados carregados | Itens com excesso: {pos_diff} | "
+                        f"Itens faltando: {neg_diff} | Total: {len(df)}")
+            else:
+                status = f"Dados carregados | Total: {len(df)}"
+            
+            self.update_status(status)
+
+        except AttributeError as e:
+            self.update_status("Erro: estrutura de dados inválida")
+            logger.error(f"AttributeError in _update_display_stats: {str(e)}")
+        except Exception as e:
+            self.update_status("Erro ao calcular estatísticas")
+            logger.error(f"Unexpected error in _update_display_stats: {str(e)}", exc_info=True)
         
         def load_data():
             try:
@@ -596,25 +676,34 @@ class MainWindow(tk.Tk):
     def _validate_selected_data(self):
         """Valida os dados selecionados com tratamento robusto"""
         try:
-            selected_data = self.inventory_view.get_selected_data()
-            if selected_data is None or selected_data.empty:
-                messagebox.showwarning("Aviso", "Nenhum dado selecionado para validação")
+            selected = self.inventory_view.get_selected_rows()
+            if not selected:
+                messagebox.showwarning("Aviso", "Nenhum item selecionado para validação")
                 return
 
             validation_errors = []
+            gtin_errors = 0
+            count_errors = 0
             
-            if 'GTIN' in selected_data.columns:
-                invalid_gtin = selected_data[selected_data['GTIN'].astype(str).str.len() != 13]
-                if not invalid_gtin.empty:
-                    validation_errors.append(f"{len(invalid_gtin)} GTINs inválidos")
-
-            if 'QNT_CONTADA' in selected_data.columns:
-                negative_counts = selected_data[selected_data['QNT_CONTADA'] < 0]
-                if not negative_counts.empty:
-                    validation_errors.append(f"{len(negative_counts)} quantidades negativas")
-
-            if validation_errors:
-                messagebox.showwarning("Problemas Encontrados", "\n".join(validation_errors))
+            for item in selected:
+                values = item['values']
+                
+                # Valida GTIN
+                if 'GTIN' in values and len(str(values['GTIN'])) != 13:
+                    gtin_errors += 1
+                    
+                # Valida quantidade
+                if 'QNT_CONTADA' in values and float(values['QNT_CONTADA']) < 0:
+                    count_errors += 1
+            
+            errors = []
+            if gtin_errors > 0:
+                errors.append(f"{gtin_errors} GTINs inválidos")
+            if count_errors > 0:
+                errors.append(f"{count_errors} quantidades negativas")
+            
+            if errors:
+                messagebox.showwarning("Problemas Encontrados", "\n".join(errors))
             else:
                 messagebox.showinfo("Validação", "Todos os dados selecionados são válidos!")
 
@@ -625,14 +714,15 @@ class MainWindow(tk.Tk):
     def _show_data_stats(self):
         """Exibe estatísticas avançadas dos dados selecionados"""
         try:
-            selected_data = self.inventory_view.get_selected_data()
-            if selected_data is None or selected_data.empty:
-                messagebox.showwarning("Aviso", "Nenhum dado selecionado para análise")
+            selected = self.inventory_view.get_selected_rows()
+            if not selected:
+                messagebox.showwarning("Aviso", "Nenhum item selecionado para análise")
                 return
 
             stats_window = tk.Toplevel(self)
-            stats_window.title("Estatísticas dos Dados")
+            stats_window.title("Estatísticas dos Dados Selecionados")
             stats_window.geometry("400x300")
+            stats_window.resizable(False, False)
 
             main_frame = ttk.Frame(stats_window, padding="10")
             main_frame.pack(fill=tk.BOTH, expand=True)
@@ -640,21 +730,44 @@ class MainWindow(tk.Tk):
             stats_text = tk.Text(main_frame, wrap=tk.WORD)
             stats_text.pack(fill=tk.BOTH, expand=True)
 
-            stats = []
+            # Converte para DataFrame para facilitar análise
+            df = pd.DataFrame([item['values'] for item in selected])
             
-            if 'QNT_CONTADA' in selected_data.columns:
-                stats.append(f"Total de itens: {len(selected_data)}")
-                stats.append(f"Média de quantidade: {selected_data['QNT_CONTADA'].mean():.2f}")
-                stats.append(f"Maior quantidade: {selected_data['QNT_CONTADA'].max()}")
-                stats.append(f"Menor quantidade: {selected_data['QNT_CONTADA'].min()}")
-            
-            if 'DIFERENCA' in selected_data.columns:
-                positives = selected_data[selected_data['DIFERENCA'] > 0]
-                negatives = selected_data[selected_data['DIFERCA'] < 0]
-                stats.append(f"Itens com excesso: {len(positives)}")
-                stats.append(f"Itens faltando: {len(negatives)}")
-                stats.append(f"Maior divergência: {selected_data['DIFERENCA'].max()}")
-                stats.append(f"Menor divergência: {selected_data['DIFERENCA'].min()}")
+            stats = [
+                f"Total de itens selecionados: {len(selected)}",
+                ""
+            ]
+
+            if 'QNT_CONTADA' in df.columns:
+                try:
+                    df['QNT_CONTADA'] = pd.to_numeric(df['QNT_CONTADA'])
+                    stats.extend([
+                        "Quantidades Contadas:",
+                        f"- Média: {df['QNT_CONTADA'].mean():.2f}",
+                        f"- Máxima: {df['QNT_CONTADA'].max()}",
+                        f"- Mínima: {df['QNT_CONTADA'].min()}",
+                        f"- Total: {df['QNT_CONTADA'].sum()}",
+                        ""
+                    ])
+                except:
+                    pass
+
+            if 'DIFERENCA' in df.columns:
+                try:
+                    df['DIFERENCA'] = pd.to_numeric(df['DIFERENCA'])
+                    positives = df[df['DIFERENCA'] > 0]
+                    negatives = df[df['DIFERENCA'] < 0]
+                    
+                    stats.extend([
+                        "Diferenças:",
+                        f"- Itens com excesso: {len(positives)}",
+                        f"- Itens faltando: {len(negatives)}",
+                        f"- Maior divergência: {df['DIFERENCA'].max()}",
+                        f"- Menor divergência: {df['DIFERENCA'].min()}",
+                        f"- Diferença total: {df['DIFERENCA'].sum():+}"
+                    ])
+                except:
+                    pass
 
             stats_text.insert(tk.END, "\n".join(stats))
             stats_text.config(state=tk.DISABLED)
@@ -664,6 +777,8 @@ class MainWindow(tk.Tk):
                 text="Fechar",
                 command=stats_window.destroy
             ).pack(pady=10)
+
+            self.center_window(stats_window)
 
         except Exception as e:
             self.logger.error(f"Erro ao gerar estatísticas: {e}", exc_info=True)
@@ -738,14 +853,13 @@ class MainWindow(tk.Tk):
         """Ativa/desativa o monitoramento automático"""
         if not hasattr(self, 'data_combiner') or not self.data_combiner:
             return
-        
+            
         self.watcher_active = not self.watcher_active
-        if hasattr(self, 'config_manager') and self.config_manager:
-            self.config_manager.set("watcher.enabled", self.watcher_active)
+        self.config_manager.set("watcher.enabled", self.watcher_active)
         
         try:
             if self.watcher_active:
-                interval = self.config_manager.get("watcher.interval", 60) if hasattr(self, 'config_manager') else 60
+                interval = self.config_manager.get("watcher.interval", 2)
                 self.data_combiner.start_watching(interval)
                 message = "Monitoramento automático ativado"
             else:
@@ -756,7 +870,7 @@ class MainWindow(tk.Tk):
             self.update_status(message)
             messagebox.showinfo("Monitoramento", message)
         except Exception as e:
-            self.logger.error(f"Erro ao alternar monitoramento: {e}")
+            self.logger.error(f"Erro ao alternar monitoramento: {e}", exc_info=True)
             messagebox.showerror(
                 "Erro",
                 f"Falha ao alternar monitoramento:\n{str(e)}"
