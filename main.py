@@ -15,7 +15,6 @@ def main():
     """
     try:
         # Cria a instância da janela principal
-        # (Observação: o comentário sobre "Removido o parâmetro root" sugere uma refatoração recente)
         app = MainWindow()  # Removido o parâmetro root
         
         # Inicia o loop principal de eventos da interface gráfica
@@ -28,6 +27,6 @@ def main():
         # Exibe uma mensagem de erro amigável para o usuário
         tk.messagebox.showerror("Erro Fatal", f"Ocorreu um erro crítico:\n{str(e)}")
 
-# Ponto de entrada padrão para scripts Python
+
 if __name__ == "__main__":
     main()

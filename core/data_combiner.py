@@ -122,17 +122,11 @@ class DataCombiner:
             return None
 
     def _process_count_file(self) -> Optional[pd.DataFrame]:
-        """Processa o arquivo de contagem com verificação de modificação"""
+        """Processa o arquivo de contagem com verificação de modificação e acumulação de dados"""
         count_path = self.data_folder / "dados123.parquet"
         
         try:
-            # Verifica se o arquivo foi modificado
-            current_mtime = count_path.stat().st_mtime if count_path.exists() else 0
-            if current_mtime <= self.last_count_mtime:
-                return None
-                
-            self.last_count_mtime = current_mtime
-            
+            # Sempre processa o arquivo completo (remove verificação de modificação)
             df = self._safe_read_parquet(count_path, self.count_columns)
             if df is None or df.empty:
                 return pd.DataFrame(columns=['GTIN', 'QNT_CONTADA', 'OPERADOR', 'ENDERECO'])
@@ -179,30 +173,47 @@ class DataCombiner:
                 self.logger.error("Dados iniciais vazios - nada para combinar")
                 return None
                 
-            # Garante colunas extras mesmo sem contagem
+            # Começa com os dados iniciais
             result = df_initial.copy()
-            result['QNT_CONTADA'] = 0
-            result['DIFERENCA'] = -result['Estoque']  # Diferença inicial = -Estoque
-            result['OPERADOR'] = ''
-            result['ENDERECO'] = ''
             
+            # Adiciona colunas de contagem se não existirem
+            if 'QNT_CONTADA' not in result.columns:
+                result['QNT_CONTADA'] = 0
+            if 'DIFERENCA' not in result.columns:
+                result['DIFERENCA'] = -result['Estoque']
+            if 'OPERADOR' not in result.columns:
+                result['OPERADOR'] = ''
+            if 'ENDERECO' not in result.columns:
+                result['ENDERECO'] = ''
+            
+            # Se houver contagens, faz o merge
             if df_counts is not None and not df_counts.empty:
-                # Merge seguro mantendo todos os dados iniciais
+                # Merge mantendo todos os dados iniciais
                 result = result.merge(
                     df_counts,
                     how='left',
                     on='GTIN',
-                    suffixes=('', '_y')
+                    suffixes=('', '_new')
                 )
                 
-                # Consolida colunas duplicadas
-                for col in ['QNT_CONTADA', 'OPERADOR', 'ENDERECO']:
-                    if f"{col}_y" in result.columns:
-                        result[col] = result[f"{col}_y"].fillna(result[col])
-                        result.drop(f"{col}_y", axis=1, inplace=True)
+                # Atualiza apenas os valores que foram contados
+                mask = result['QNT_CONTADA_new'].notna()
+                result.loc[mask, 'QNT_CONTADA'] = result.loc[mask, 'QNT_CONTADA_new']
                 
-                # Calcula diferença real
-                result['DIFERENCA'] = result['QNT_CONTADA'] - result['Estoque']
+                # Atualiza operador e endereço apenas se houver novos valores
+                for col in ['OPERADOR', 'ENDERECO']:
+                    new_col = f"{col}_new"
+                    if new_col in result.columns:
+                        result[col] = result[col].mask(
+                            result[new_col].notna() & (result[new_col] != ''),
+                            result[new_col]
+                        )
+                
+                # Remove colunas temporárias
+                result.drop(columns=[c for c in result.columns if c.endswith('_new')], inplace=True)
+            
+            # Calcula diferença com base nos valores atualizados
+            result['DIFERENCA'] = result['QNT_CONTADA'] - result['Estoque']
             
             return result
             

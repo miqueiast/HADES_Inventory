@@ -1,3 +1,4 @@
+#main_window.py
 from compileall import compile_file
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
@@ -98,7 +99,7 @@ class MainWindow(tk.Tk):
             "load": self._create_toolbutton("Carregar Dados Iniciais", self.load_initial_data, False),
             "import": self._create_toolbutton("Incluir Novos Dados", self.import_new_data, False),
             "refresh": self._create_toolbutton("Atualizar Dados", self.refresh_data, False),
-            "backup": self._create_toolbutton("Backup", self.manual_backup, False)
+            "backup": self._create_toolbutton("Salvar", self.manual_backup, False)
         }
         
         # Botão de monitoramento

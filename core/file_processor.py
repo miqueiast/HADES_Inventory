@@ -327,25 +327,21 @@ class FileProcessor:
 
             output_path = data_path / "dados123.parquet"
             
-            # Após salvar o dados123.parquet, adicione:
-            combiner = DataCombiner(data_path)
-            if not combiner.combine_data():
-                self.logger.warning("Combinação automática falhou após processar Excel")
-
+            # Carrega dados existentes se houver
             if output_path.exists():
                 existing_df = pd.read_parquet(output_path)
-                combined_df = pd.concat([existing_df, grouped_df])
-                final_df = combined_df.groupby('COD_BARRAS', as_index=False).agg(agg_rules)
+                # Concatena e reagrupa mantendo a soma das quantidades
+                final_df = pd.concat([existing_df, grouped_df])
+                final_df = final_df.groupby('COD_BARRAS', as_index=False).agg(agg_rules)
             else:
                 final_df = grouped_df
 
-            final_cols = ['COD_BARRAS', 'QNT_CONTADA']
-            for col in ['OPERADOR', 'ENDERECO']:
-                if col in final_df.columns:
-                    final_cols.append(col)
-            
-            final_df = final_df[final_cols]
+            # Salva o arquivo atualizado
             final_df.to_parquet(output_path, index=False)
+            
+            # Dispara a combinação automática
+            combiner = DataCombiner(data_path)
+            combiner.combine_data()
 
             return True, (f"Dados processados com sucesso. "
                         f"Total de {len(final_df)} itens únicos. "
