@@ -1,8 +1,7 @@
-#main.py
 import tkinter as tk
-import logging 
+from tkinter import messagebox
+import logging
 from ui.main_window import MainWindow
-from utils.logger import setup_logger
 
 def main():
     """
@@ -15,18 +14,26 @@ def main():
     """
     try:
         # Cria a instância da janela principal
-        app = MainWindow()  # Removido o parâmetro root
+        app = MainWindow()
         
         # Inicia o loop principal de eventos da interface gráfica
         app.mainloop()
         
     except Exception as e:
         # Registra erros críticos no log com traceback completo
-        logging.critical(f"Falha na aplicação: {e}", exc_info=True)
+        logging.critical(f"Falha crítica na aplicação: {e}", exc_info=True)
         
         # Exibe uma mensagem de erro amigável para o usuário
-        tk.messagebox.showerror("Erro Fatal", f"Ocorreu um erro crítico:\n{str(e)}")
-
+        # Criar uma janela raiz temporária para mostrar o erro se a principal falhar na inicialização
+        root = tk.Tk()
+        root.withdraw()
+        messagebox.showerror("Erro Fatal", f"Ocorreu um erro crítico e a aplicação precisa ser fechada:\n\n{str(e)}\n\nVerifique o arquivo 'inventario_hades.log' para detalhes.")
+        root.destroy()
 
 if __name__ == "__main__":
+    # É uma boa prática configurar o logging básico aqui,
+    # caso a MainWindow falhe antes de configurar seu próprio logger.
+    logging.basicConfig(level=logging.INFO, 
+                        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                        handlers=[logging.FileHandler("inventario_hades.log"), logging.StreamHandler()])
     main()
