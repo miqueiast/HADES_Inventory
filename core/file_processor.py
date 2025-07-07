@@ -1,4 +1,4 @@
-# core/file_processor.py (Este é o arquivo que você vai editar)
+# core/file_processor.py
 import pandas as pd
 import re
 from pathlib import Path
@@ -7,6 +7,7 @@ import logging
 import chardet
 import threading
 import shutil
+from datetime import datetime # Importar datetime
 
 from .data_combiner import DataCombiner
 
@@ -171,13 +172,28 @@ class FileProcessor:
                     continue
 
                 try:
+                    # Capture os valores como string
+                    preco_str = match.group('preco')
+                    estoque_str = match.group('estoque')
+                    custo_str = match.group('custo')
+                    
+                    # Remova qualquer vírgula ou ponto (que não seja decimal) antes de converter para int
+                    # Embora o regex \d{8} não permita vírgulas/pontos, o .replace(r'[.,]', '') serve como segurança.
+                    # O principal aqui é a divisão por 100.
+                    preco_limpo = re.sub(r'[.,]', '', preco_str)
+                    estoque_limpo = re.sub(r'[.,]', '', estoque_str)
+                    custo_limpo = re.sub(r'[.,]', '', custo_str)
+                    
                     data.append({
                         'GTIN': self._remove_leading_zeros(match.group('gtin')),
                         'Codigo': self._remove_leading_zeros(match.group('codigo')),
                         'Descricao': match.group('descricao').strip(),
-                        'Preco': int(match.group('preco')) / 100,
-                        'Estoque': int(match.group('estoque')),
-                        'Custo': int(match.group('custo')) / 100,
+                        # CORREÇÃO APLICADA: Divide por 100 para Preco
+                        'Preco': int(preco_limpo) / 100,
+                        # CORREÇÃO APLICADA: Divide por 100 para Estoque
+                        'Estoque': int(estoque_limpo) / 100,
+                        # CORREÇÃO APLICADA: Divide por 100 para Custo
+                        'Custo': int(custo_limpo) / 100,
                         'Secao': self._remove_leading_zeros(match.group('secao')),
                     })
                 except Exception as e:
@@ -348,7 +364,7 @@ class FileProcessor:
             missing = required_columns - set(df.columns)
             if missing:
                 return False, f"Colunas obrigatórias faltando após renomeamento: {', '.join(missing)}. " \
-                             f"Verifique o mapeamento e os cabeçalhos do Excel."
+                              f"Verifique o mapeamento e os cabeçalhos do Excel."
 
             # [CITE: 3] Processa dados: COD_BARRAS
             df['COD_BARRAS'] = (
@@ -372,12 +388,12 @@ class FileProcessor:
             
             # [CITE: 3] Adiciona LOJA_KEY se ela não veio no Excel (pode ser obtida do inventário ativo)
             if 'LOJA_KEY' not in df.columns:
-                 inv_info = self.inventory_manager.get_active_inventory_info()
-                 if inv_info and 'loja' in inv_info:
-                     df['LOJA_KEY'] = int(inv_info['loja']) # Assume que 'loja' do inv_info é a loja_key numérica
-                 else:
-                     self.logger.warning("LOJA_KEY não encontrada no Excel e não disponível no inventário ativo. Definindo como 0.")
-                     df['LOJA_KEY'] = 0 # Valor padrão se não for encontrado
+                inv_info = self.inventory_manager.get_active_inventory_info()
+                if inv_info and 'loja' in inv_info:
+                    df['LOJA_KEY'] = int(inv_info['loja']) # Assume que 'loja' do inv_info é a loja_key numérica
+                else:
+                    self.logger.warning("LOJA_KEY não encontrada no Excel e não disponível no inventário ativo. Definindo como 0.")
+                    df['LOJA_KEY'] = 0 # Valor padrão se não for encontrado
 
             # [CITE: 3] Regras de agregação (para somar quantidades e concatenar operadores/endereços)
             agg_rules = {'QNT_CONTADA': 'sum'}

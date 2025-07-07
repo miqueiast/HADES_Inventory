@@ -7,7 +7,7 @@ def main():
     """
     Função principal que inicia a aplicação HADES.
     
-    Responsabilidades:
+    Responsabilidades: 
     - Criar e iniciar a janela principal da aplicação
     - Gerenciar erros não tratados e exibir mensagens ao usuário
     - Garantir que erros críticos sejam registrados adequadamente

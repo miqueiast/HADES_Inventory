@@ -1,5 +1,4 @@
-# Suas importações originais
-from compileall import compile_file
+# main_window.py
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 from pathlib import Path
@@ -14,8 +13,6 @@ except ImportError:
 import pandas as pd
 from datetime import datetime
 import time
-
-# Suas importações de classes
 from core.inventory_manager import InventoryManager
 from core.file_processor import FileProcessor
 from core.data_combiner import DataCombiner
@@ -69,7 +66,7 @@ class MainWindow(tk.Tk):
         self._initialize_services()
         
         # Interface do usuário
-        self._setup_ui()
+        self._setup_ui() # A chamada para _setup_ui() deve vir antes da linha do iconbitmap
         self._apply_theme()
         
         # Carrega estado inicial
@@ -97,6 +94,29 @@ class MainWindow(tk.Tk):
         self._setup_inventory_panel()
         self._setup_data_view()
         self._setup_statusbar()
+
+        # Adicione esta linha para definir o ícone da janela
+        # Certifique-se de que 'assets/icons/logo.ico' é o caminho correto para o seu arquivo .ico
+        try:
+            # O .parent.parent é para subir dois níveis: de ui/ para a raiz do projeto
+            base_path = Path(__file__).parent.parent
+            icon_relative_path = Path("assets") / "icons" / "logo.ico" # Assumindo essa estrutura
+            icon_path = base_path / icon_relative_path
+
+            print(f"Caminho base do projeto: {base_path}")
+            print(f"Caminho relativo do ícone: {icon_relative_path}")
+            print(f"Tentando carregar ícone de: {icon_path.resolve()}") # Use .resolve() para caminho absoluto e canônico
+
+            if icon_path.exists():
+                self.iconbitmap(str(icon_path))
+                print("Ícone carregado com sucesso.")
+            else:
+                self.logger.warning(f"Ícone não encontrado em: {icon_path.resolve()}. Não foi possível definir o ícone da janela.")
+        except tk.TclError as e:
+            self.logger.error(f"Erro ao definir o ícone: {e}. Certifique-se de que o arquivo .ico é válido.", exc_info=True)
+        except Exception as e:
+            self.logger.error(f"Erro inesperado ao configurar o ícone: {e}", exc_info=True)
+
 
     def _setup_toolbar(self):
         """Configura a barra de ferramentas superior"""
